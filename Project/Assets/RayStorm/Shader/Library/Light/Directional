@@ -1,0 +1,10 @@
+
+float3 OnImportanceSampleDirection(in RSLightData LightData, float3 Position)
+{
+    return -LightData.direction;
+}
+
+float3 OnSampleLightIrradiance(in RSLightData LightData, float3 Position)
+{
+    return LightData.color;
+}

@@ -1,0 +1,15 @@
+
+float3 OnMaterialRayIntersectProgram(in RSMaterialData MaterialData, inout RSRayData Ray, in RSRayIntersectData RayIntersectData)
+{
+    float3 NormalDirection = RayIntersectData.normal;
+    if (dot(NormalDirection, -Ray.direction) < 0.0f)
+        NormalDirection = -NormalDirection;
+
+    Ray.energy = 0.0f;
+    return NormalDirection;
+}
+
+float3 OnMaterialLightShadeProgram(in RSMaterialData MaterialData, in RSLightData LightData, float3 N, float3 L, float3 V, float Shadow)
+{
+    return 0;
+}

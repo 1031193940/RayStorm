@@ -1,0 +1,56 @@
+#ifndef RAYSTORM_DYNAMIC_MATERIAL_INCLUDE
+#define RAYSTORM_DYNAMIC_MATERIAL_INCLUDE
+
+#include "../Include/DataInclude.cginc"
+#include "../Include/MathInclude.cginc"
+#include "../Include/BRDFInclude.cginc"
+#include "../Include/RandomInclude.cginc"
+#include "../Include/ConfigInclude.cginc"
+#include "../Include/RaytraceInclude.cginc"
+
+StructuredBuffer<RSMaterialData> RSSceneMaterialBuffer;
+
+#undef OnMaterialRayIntersectProgram
+#undef OnMaterialLightShadeProgram
+
+__LOOP_BEGIN__
+#define OnMaterialRayIntersectProgram OnMaterialRayIntersectProgram__PROGRAM_ID__
+#define OnMaterialLightShadeProgram   OnMaterialLightShadeProgram__PROGRAM_ID__
+#include "../Library/Material/__PROGRAM_NAME__" 
+#undef  OnMaterialRayIntersectProgram
+#undef  OnMaterialLightShadeProgram
+
+__LOOP_END__
+
+float3 DynamicMaterialRayIntersect(inout RSRayData Ray, in RSRayIntersectData RayIntersectData) 
+{
+	RSMaterialData MaterialData = RSSceneMaterialBuffer[RayIntersectData.materialID];
+
+	switch (MaterialData.programID)
+	{
+        __LOOP_BEGIN__
+		case __PROGRAM_ID__: return OnMaterialRayIntersectProgram__PROGRAM_ID__(MaterialData, Ray, RayIntersectData);
+        __LOOP_END__
+		default: break;
+	}
+
+	Ray.energy = 0.0f;
+	return float3(1, 0, 1);
+}
+
+float3 DynamicMaterialLightShade(in RSLightData LightData, in RSRayData RayData, in RSRayIntersectData RayIntersectData, float3 L, float Shadow)
+{
+	RSMaterialData MaterialData = RSSceneMaterialBuffer[RayIntersectData.materialID];
+
+	switch (MaterialData.programID)
+	{
+        __LOOP_BEGIN__
+		case __PROGRAM_ID__: return OnMaterialLightShadeProgram__PROGRAM_ID__(MaterialData, LightData, RayIntersectData.normal, L, -RayData.direction, Shadow);
+        __LOOP_END__
+		default: break;
+	}
+
+	return float3(0, 0, 0);
+}
+
+#endif // RAYSTORM_DYNAMIC_MATERIAL_INCLUDE

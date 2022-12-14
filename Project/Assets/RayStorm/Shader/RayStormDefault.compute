@@ -1,0 +1,33 @@
+﻿#include "Include/SDFInclude.cginc"
+#include "Include/DataInclude.cginc"
+#include "Include/MathInclude.cginc"
+#include "Include/RandomInclude.cginc"
+#include "Include/ConfigInclude.cginc"
+
+#pragma kernel CSKernelMain
+
+int RayStormFrameID;
+RWTexture2D<float4> RayStormOutputTexture;
+
+float3 HSVToRGB(float h, float s, float v)
+{
+	float4 K = float4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+	float3 p = abs(frac(h.xxx + K.xyz) * 6.0 - K.www);
+	return v * lerp(K.xxx, saturate(p - K.xxx), s);
+}
+
+[numthreads(32, 32, 1)]
+void CSKernelMain(uint3 id : SV_DispatchThreadID)
+{
+	int TextureWidth, TextureHeight;
+	RayStormOutputTexture.GetDimensions(TextureWidth, TextureHeight);
+
+	float2 uv = float2(id.xy) / float2(TextureWidth - 1, TextureHeight - 1);
+	//float  Ratio = (float)TextureWidth / (float)TextureHeight;
+	//float2 AdjacedUV = (uv * 2.0f - 1.0f) * float2(Ratio, 1.0f);
+
+	float  Hue = RayStormFrameID * 0.001f;
+	float3 RGB = HSVToRGB(Hue, 0.8f, 0.8f);
+
+	RayStormOutputTexture[id.xy] = float4(RGB, 1.0f);
+}

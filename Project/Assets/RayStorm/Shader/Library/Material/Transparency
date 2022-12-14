@@ -1,0 +1,39 @@
+
+float3 OnMaterialRayIntersectProgram(in RSMaterialData MaterialData, inout RSRayData Ray, in RSRayIntersectData RayIntersectData)
+{
+    float IndexOfRefraction = MaterialData.extra.x;
+    IndexOfRefraction = 1.2f; // !!!DEBUG
+
+    float  IOR = IndexOfRefraction;
+    float3 V = -Ray.direction;
+    float3 N = RayIntersectData.normal;
+    if (dot(N, V) < 0.0f) // OUT
+    {
+        N = -N;
+        IOR = rcp(IndexOfRefraction);
+    }
+
+    N = RoughnessNormal(Ray.id, N, MaterialData.roughness);
+
+    float3 RefractDirection = 0.0f;
+    float  ProbabilityOfReflection = FresnelSchlickIOR(dot(N, V), IOR);
+    if (Random01(Ray.id) > ProbabilityOfReflection)
+        RefractDirection = RefractIOR(V, N, IOR);
+    else 
+        RefractDirection = reflect(-V, N);
+
+    float RefractNormalSign = dot(N, RefractDirection);
+    float RefractNormalDirection = normalize(N * RefractNormalSign);
+
+    Ray.energy *= MaterialData.albedo;
+    Ray.energy *= exp(-distance(Ray.position, RayIntersectData.position) * (1.0f - MaterialData.albedo) * 0.1f);
+    Ray.direction = normalize(RefractDirection);
+    Ray.position = RayIntersectData.position + RefractNormalDirection * RAYTRACE_EPSILON;
+
+    return MaterialData.emission;
+}
+
+float3 OnMaterialLightShadeProgram(in RSMaterialData MaterialData, in RSLightData LightData, float3 N, float3 L, float3 V, float Shadow)
+{
+    return 0;
+}

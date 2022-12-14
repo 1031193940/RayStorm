@@ -1,0 +1,57 @@
+#ifndef RAYSTORM_DYNAMIC_OBJECT_INCLUDE
+#define RAYSTORM_DYNAMIC_OBJECT_INCLUDE
+
+#include "../Include/SDFInclude.cginc"
+#include "../Include/DataInclude.cginc"
+#include "../Include/MathInclude.cginc"
+#include "../Include/RandomInclude.cginc"
+#include "../Include/ConfigInclude.cginc"
+
+StructuredBuffer<RSObjectData> RSSceneObjectBuffer;
+
+#undef OnObjectRayHitProgram
+
+__LOOP_BEGIN__
+#define OnObjectRayHitProgram OnObjectRayHitProgram__PROGRAM_ID__
+#include "../Library/Object/__PROGRAM_NAME__"
+#undef  OnObjectRayHitProgram
+
+__LOOP_END__
+bool DynamicObjectRayHitProgram(in RSObjectData ObjectData, in RSRayData Ray, inout RSRayIntersectData RayIntersectData)
+{
+	RayIntersectData = (RSRayIntersectData)0;
+
+	switch (ObjectData.programID)
+	{
+        __LOOP_BEGIN__
+		case __PROGRAM_ID__: return OnObjectRayHitProgram__PROGRAM_ID__(ObjectData, Ray, RayIntersectData);
+        __LOOP_END__
+		default: break;
+	}
+
+	return false; 
+}
+
+bool DynamicObjectRayHit(in RSRayData Ray, inout RSRayIntersectData RayIntersectData)
+{
+	float ClostestRayHitDistance = RAYTRACE_MAX_DISTANCE;
+
+	int DynamicObjectsCount = RSSceneObjectBuffer.Length;
+	for (int ObjectID = 0; ObjectID < DynamicObjectsCount; ++ObjectID)
+	{
+		RSRayIntersectData ObjectIntersectData;
+		if (!DynamicObjectRayHitProgram(RSSceneObjectBuffer[ObjectID], Ray, ObjectIntersectData))
+			continue;
+		
+		float ObjectRayHitDistance = distance(Ray.position, ObjectIntersectData.position);
+		if (ObjectRayHitDistance < ClostestRayHitDistance)
+		{
+			RayIntersectData = ObjectIntersectData;
+			ClostestRayHitDistance = ObjectRayHitDistance; 
+		}
+	}
+
+	return ClostestRayHitDistance < RAYTRACE_MAX_DISTANCE;
+}
+
+#endif // RAYSTORM_DYNAMIC_OBJECT_INCLUDE

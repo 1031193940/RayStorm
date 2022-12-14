@@ -1,0 +1,56 @@
+#ifndef RAYSTORM_DYNAMIC_LIGHT_INCLUDE
+#define RAYSTORM_DYNAMIC_LIGHT_INCLUDE
+
+#include "../Include/DataInclude.cginc"
+#include "../Include/MathInclude.cginc"
+#include "../Include/BRDFInclude.cginc"
+#include "../Include/RandomInclude.cginc"
+#include "../Include/ConfigInclude.cginc"
+#include "../Include/RaytraceInclude.cginc"
+
+StructuredBuffer<RSLightData> RSSceneLightBuffer;
+
+#undef OnImportanceSampleDirection
+#undef OnSampleLightIrradiance
+
+__LOOP_BEGIN__
+#define OnImportanceSampleDirection OnImportanceSampleDirection__PROGRAM_ID__
+#define OnSampleLightIrradiance OnSampleLightIrradiance__PROGRAM_ID__
+#include "../Library/Light/__PROGRAM_NAME__"
+#undef OnImportanceSampleDirection
+#undef OnSampleLightIrradiance
+
+__LOOP_END__
+
+uint GetDynamicLightCount()
+{
+    return RSSceneLightBuffer.Length;
+}
+
+float3 DynamicLightImportanceSampleDirection(uint LightID, float3 Position)
+{
+    switch (LightID)
+    {
+        __LOOP_BEGIN__
+        case __PROGRAM_ID__: return OnImportanceSampleDirection__PROGRAM_ID__(RSSceneLightBuffer[LightID], Position);
+        __LOOP_END__
+        default: break;
+    }
+
+    return 0.0f;
+}
+
+float3 DynamicLightSampleIrradiance(uint LightID, float3 Position)
+{
+    switch (LightID)
+    {
+        __LOOP_BEGIN__
+        case __PROGRAM_ID__: return OnSampleLightIrradiance__PROGRAM_ID__(RSSceneLightBuffer[LightID], Position);
+        __LOOP_END__
+        default: break;
+    }
+
+    return 0.0f;
+}
+
+#endif // RAYSTORM_DYNAMIC_LIGHT_INCLUDE

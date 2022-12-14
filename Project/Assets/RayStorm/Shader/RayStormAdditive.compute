@@ -1,0 +1,34 @@
+
+#pragma kernel CSKernelMain
+
+#include "Include/DataInclude.cginc"
+
+uint RaytraceWindowPosX;
+uint RaytraceWindowPosY;
+uint RaytraceWindowPosZ;
+uint RaytraceWindowSizeX;
+uint RaytraceWindowSizeY;
+uint RaytraceWindowSizeZ;
+StructuredBuffer<RSOutputData> RaytraceWindowBuffer;
+RWTexture2D<float4> RaytraceOutputTexture;
+
+[numthreads(1024, 1, 1)]
+void CSKernelMain(uint3 id : SV_DispatchThreadID)
+{
+	if (id.x >= RaytraceWindowSizeX * RaytraceWindowSizeY)
+		return;
+
+	uint PixelID = id.x;
+	uint SubpixelStartID = PixelID * RaytraceWindowSizeZ;
+
+	float4 Color = 0.0f;
+	for (uint LocalID = 0; LocalID < RaytraceWindowSizeZ; ++LocalID)
+	{
+		uint SubpixelID = SubpixelStartID + LocalID;
+		Color += RaytraceWindowBuffer[SubpixelID].data * rcp(RaytraceWindowSizeZ);
+	}
+
+	float FrameWeight = rcp(RaytraceWindowPosZ + 1);
+	uint2 TexturePixelID = int2(RaytraceWindowPosX, RaytraceWindowPosY) + int2(PixelID % RaytraceWindowSizeX, PixelID / RaytraceWindowSizeX);
+	RaytraceOutputTexture[TexturePixelID] = RaytraceOutputTexture[TexturePixelID] * (1.0f - FrameWeight) + Color * FrameWeight;
+}

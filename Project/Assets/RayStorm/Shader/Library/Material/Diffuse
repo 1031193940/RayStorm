@@ -1,0 +1,22 @@
+
+float3 OnMaterialRayIntersectProgram(in RSMaterialData MaterialData, inout RSRayData Ray, in RSRayIntersectData RayIntersectData)
+{
+    float3 NormalDirection = RayIntersectData.normal;
+    if (dot(NormalDirection, -Ray.direction) < 0.0f)
+        NormalDirection = -NormalDirection;
+
+    float3 LocalBounceDirection = UniformSampleHemisphere(Ray.id);
+    float4 QuaternionLocalToWorld = QuaternionFromTo(float3(0, 0, 1), NormalDirection);
+    float3 WorldBounceDirection = QuaternionRotate(QuaternionLocalToWorld, LocalBounceDirection);
+
+    Ray.energy *= MaterialData.albedo;
+    Ray.direction = normalize(WorldBounceDirection);
+    Ray.position = RayIntersectData.position + NormalDirection * RAYTRACE_EPSILON;
+
+    return MaterialData.emission;
+}
+
+float3 OnMaterialLightShadeProgram(in RSMaterialData MaterialData, in RSLightData LightData, float3 N, float3 L, float3 V, float Shadow)
+{
+    return Lambertine(N, L) * MaterialData.albedo * LightData.color * Shadow;
+}

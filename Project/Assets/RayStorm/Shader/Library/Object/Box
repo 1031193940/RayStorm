@@ -1,0 +1,54 @@
+
+float SampleBoxDistanceFieldValue(float3 Position, float3 Center, float3 Size)
+{
+    float3 p = Position - Center;
+    float3 q = abs(p) - Size;
+    return length(max(q, 0.0f)) + min(max(q.x, max(q.y, q.z)), 0.0f);
+}
+
+float3 SampleBoxDistanceFieldNormal(float3 Position, float3 Center, float3 Size)
+{
+	const float2 kEpsilon = float2(0.00001f, 0.0f);
+	float DDX = SampleBoxDistanceFieldValue(Position - kEpsilon.xyy, Center, Size);
+	float DDY = SampleBoxDistanceFieldValue(Position - kEpsilon.yxy, Center, Size);
+	float DDZ = SampleBoxDistanceFieldValue(Position - kEpsilon.yyx, Center, Size);
+	float3 Normal = SampleBoxDistanceFieldValue(Position, Center, Size) - float3(DDX, DDY, DDZ);
+	return normalize(Normal);
+}
+
+bool OnObjectRayHitProgram(in RSObjectData ObjectData, in RSRayData Ray, inout RSRayIntersectData RayIntersectData)
+{
+    const int kRaytraceMaxSteps = 256;
+
+    float3 Euler = ObjectData.rotation / 180.0f * PI;
+    float4 QuaternionLocalToWorld = QuaternionFromEuler( Euler.x,  Euler.y,  Euler.z);
+    float4 QuaternionWorldToLocal = QuaternionFromEuler(-Euler.x, -Euler.y, -Euler.z);
+
+    float RaytraceDistance = 0.0f;
+    for (int StepID = 0; StepID < kRaytraceMaxSteps; ++StepID)
+    {
+        float3 RaytracePosition = Ray.position + Ray.direction * RaytraceDistance;
+        float3 DistanceFieldSamplePos = QuaternionRotate(QuaternionWorldToLocal, RaytracePosition - ObjectData.position);
+
+        float DistanceField = SampleBoxDistanceFieldValue(DistanceFieldSamplePos, float3(0, 0, 0), ObjectData.scale * 0.5f);
+        if (DistanceField < RAYTRACE_EPSILON)
+        {
+            float3 LocalSpaceNormal = SampleBoxDistanceFieldNormal(DistanceFieldSamplePos, float3(0, 0, 0), ObjectData.scale);
+            float3 WorldSpaceNormal = QuaternionRotate(QuaternionLocalToWorld, LocalSpaceNormal);
+
+            RayIntersectData.materialID = ObjectData.materialID;
+            RayIntersectData.position = RaytracePosition;
+            RayIntersectData.normal = normalize(WorldSpaceNormal);
+            break;
+        }
+
+        RaytraceDistance += DistanceField;
+        if (RaytraceDistance > RAYTRACE_MAX_DISTANCE)
+        {
+            RayIntersectData = (RSRayIntersectData)0;
+            break;
+        }
+    }
+
+    return RaytraceDistance < RAYTRACE_MAX_DISTANCE;
+}

@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "template": "cpp",
+        "*.cginc": "cpp",
+        "directional": "cpp"
+    }
+}
