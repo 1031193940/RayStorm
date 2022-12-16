@@ -270,6 +270,18 @@ public class RayStormRenderer : MonoBehaviour
 
         RayStormBehaviour.OnFrameCollectSceneObject(Context, out Context.SceneData);
 
+        if (RSDataUtility.IsNullOrEmpty(Context.SceneData.VertexList))
+            Context.SceneData.VertexList = new RSVertexData[] { RSVertexData.Default };
+
+        if (RSDataUtility.IsNullOrEmpty(Context.SceneData.GeometryList))
+            Context.SceneData.GeometryList = new RSGeometryData[] { RSGeometryData.Default };
+
+        if (RSDataUtility.IsNullOrEmpty(Context.SceneData.CustomizeObjectList))
+            Context.SceneData.CustomizeObjectList = new RSCustomizeObject[] { RSCustomizeObject.Default };
+
+        if (RSDataUtility.IsNullOrEmpty(Context.SceneData.MaterialList))
+            Context.SceneData.MaterialList = new RSMaterialData[] { RSMaterialData.Default };
+
         RSSceneUtility.BuildSceneOctree(Context.SceneData.VertexList, Context.SceneData.GeometryList, 7,
                 out Context.SceneData.OctreeList, out Context.SceneData.OctreeGeometryIDList);
 

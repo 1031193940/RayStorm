@@ -219,18 +219,6 @@ public abstract class RayStormBehaviour : ScriptableObject
             }
         }
 
-        if (SceneVertexList.Count == 0)
-            SceneVertexList.Add(RSVertexData.Default);
-
-        if (SceneGeometryList.Count == 0)
-            SceneGeometryList.Add(RSGeometryData.Default);
-
-        if (SceneMaterialList.Count == 0)
-            SceneMaterialList.Add(RSMaterialData.Default);
-
-        if (SceneCustomizeObjectList.Count == 0)
-            SceneCustomizeObjectList.Add(RSCustomizeObject.Default);
-
         Cubemap SkyboxCubemap = RSDataUtility.CreateSolidCubemap(32, TextureFormat.ARGB32, false, Color.white);
 
         OutputSceneData = RSSceneData.Default;
