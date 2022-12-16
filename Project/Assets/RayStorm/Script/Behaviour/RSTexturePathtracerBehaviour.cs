@@ -38,13 +38,13 @@ public class RSTexturePathtracerBehaviour : RayStormBehaviour
             int SubpixelCountPerPixel;
             if (IterID == 0)
             {
-                RenderWindowSize = 128;
+                RenderWindowSize = 64;
                 SubpixelCountPerPixel = 16;
             }
             else
             {
                 RenderWindowSize = 32;
-                SubpixelCountPerPixel = 256;
+                SubpixelCountPerPixel = 128;
             }
 
             int RenderWindowCountRow = Mathf.CeilToInt(TextureHeight / (float)RenderWindowSize);

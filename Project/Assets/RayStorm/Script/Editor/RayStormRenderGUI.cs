@@ -40,15 +40,14 @@ public class RayStormRenderGUI : Editor
         }
 
         RendererComponent.SkyboxTexture = (Texture)EditorGUILayout.ObjectField("Skybox", RendererComponent.SkyboxTexture, typeof(Cubemap), false, GUILayout.Height(EditorGUIUtility.singleLineHeight));
-
-        RendererComponent.ContainsTriangleMesh = EditorGUILayout.Toggle("ContainsTriangleMesh", RendererComponent.ContainsTriangleMesh);
-        RendererComponent.ContainsCustomizeObject = EditorGUILayout.Toggle("ContainsCustomizeObject", RendererComponent.ContainsCustomizeObject);
-        RendererComponent.ContainsLightSource = EditorGUILayout.Toggle("ContainsLightSource", RendererComponent.ContainsLightSource);
-        RendererComponent.ContainsSkybox = EditorGUILayout.Toggle("ContainsSkybox", RendererComponent.ContainsSkybox);
     }
 
     private void OnInspectorGUIInPlaying(RayStormRenderer RendererComponent)
     {
+        string OctreeDisplayState = (RendererComponent.IsDisplayOctree ? "ON" : "OFF");
+        if (GUILayout.Button("Display Octree : " + OctreeDisplayState, GUILayout.Height(EditorGUIUtility.singleLineHeight * 1.5f)))
+            RendererComponent.IsDisplayOctree = !RendererComponent.IsDisplayOctree;
+
         if (GUILayout.Button("Save Texture", GUILayout.Height(EditorGUIUtility.singleLineHeight * 1.5f)))
             RendererComponent.SaveRenderTexture();
     }

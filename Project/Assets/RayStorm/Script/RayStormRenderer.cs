@@ -9,11 +9,6 @@ public class RayStormRenderer : MonoBehaviour
     /// Variables | 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    [SerializeField] public bool ContainsTriangleMesh = true;
-    [SerializeField] public bool ContainsCustomizeObject = true;
-    [SerializeField] public bool ContainsLightSource = true;
-    [SerializeField] public bool ContainsSkybox = true;
-
     [SerializeField] public bool IsDisplayOctree = false;
     [SerializeField] public Texture SkyboxTexture = null;
     [SerializeField] public RayStormBehaviour RayStormBehaviour = null;
@@ -114,13 +109,10 @@ public class RayStormRenderer : MonoBehaviour
         if (RayStormBehaviour != null)
             RayStormBehaviour.OnDrawGizmos();
 
-        if (IsDisplayOctree && SceneOctreeBuffer != null && SceneOctreeBuffer.count > 0)
+        if (IsDisplayOctree && Context != null && Context.SceneData.OctreeList != null)
         {
-            RSOctreeData[] OctreeList = new RSOctreeData[SceneOctreeBuffer.count];
-            SceneOctreeBuffer.GetData(OctreeList);
-
             Gizmos.color = Color.green;
-            foreach (var OctreeData in OctreeList)
+            foreach (var OctreeData in Context.SceneData.OctreeList)
             {
                 if (OctreeData.SubtreeCount == 0)
                     Gizmos.DrawWireCube(OctreeData.Center, OctreeData.Size);
@@ -273,6 +265,9 @@ public class RayStormRenderer : MonoBehaviour
 
     private void ReloadFrameScene()
     {
+        if (SceneVertexBuffer != null)
+            return;
+
         RayStormBehaviour.OnFrameCollectSceneObject(Context, out Context.SceneData);
 
         RSSceneUtility.BuildSceneOctree(Context.SceneData.VertexList, Context.SceneData.GeometryList, 7,
