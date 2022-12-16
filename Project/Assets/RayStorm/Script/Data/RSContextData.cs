@@ -4,13 +4,11 @@ using UnityEngine;
 
 public class RSRenderContext
 {
-    public bool ContainsTriangleMesh;
-    public bool ContainsCustomizeObject;
-    public bool ContainsLightSource;
-    public bool ContainsSkybox;
+    public Camera MainCamera = null;
+    public RSSceneData SceneData;
+    public RenderTexture RaytraceTexture = null;
 
     public int FrameID = 0;
-    public Camera MainCamera = null;
+    public bool IsRunning = true;
     public Queue<RSRenderTask> RenderTaskQueue = null;
-    public RenderTexture RaytraceTexture = null;
 }

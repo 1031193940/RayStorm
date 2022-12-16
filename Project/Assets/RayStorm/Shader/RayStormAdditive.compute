@@ -28,7 +28,13 @@ void CSKernelMain(uint3 id : SV_DispatchThreadID)
 		Color += RaytraceWindowBuffer[SubpixelID].data * rcp(RaytraceWindowSizeZ);
 	}
 
-	float FrameWeight = rcp(RaytraceWindowPosZ + 1);
 	uint2 TexturePixelID = int2(RaytraceWindowPosX, RaytraceWindowPosY) + int2(PixelID % RaytraceWindowSizeX, PixelID / RaytraceWindowSizeX);
-	RaytraceOutputTexture[TexturePixelID] = RaytraceOutputTexture[TexturePixelID] * (1.0f - FrameWeight) + Color * FrameWeight;
+	float4 FinalColor;
+	FinalColor.rgb = RaytraceOutputTexture[TexturePixelID].rgb * RaytraceOutputTexture[TexturePixelID].a + Color.rgb;
+	FinalColor.a = RaytraceOutputTexture[TexturePixelID].a + 1.0;
+	RaytraceOutputTexture[TexturePixelID] = float4(FinalColor.rgb / FinalColor.a, FinalColor.a);
+
+	//float FrameWeight = rcp(RaytraceWindowPosZ + 1);
+	//uint2 TexturePixelID = int2(RaytraceWindowPosX, RaytraceWindowPosY) + int2(PixelID % RaytraceWindowSizeX, PixelID / RaytraceWindowSizeX);
+	//RaytraceOutputTexture[TexturePixelID] = RaytraceOutputTexture[TexturePixelID] * (1.0f - FrameWeight) + Color * FrameWeight;
 }

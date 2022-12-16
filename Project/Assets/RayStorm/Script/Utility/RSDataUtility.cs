@@ -57,6 +57,14 @@ public static class RSDataUtility
 		return NewTexture2D;
 	}
 
+	public static void ClearRenderTexture(RenderTexture SourceRenderTexture, Color ClearColor)
+    {
+		RenderTexture OriginActiveRenderTexture = RenderTexture.active;
+		RenderTexture.active = SourceRenderTexture;
+		GL.Clear(true, true, ClearColor);
+		RenderTexture.active = OriginActiveRenderTexture;
+    }
+
 	////////////////////////////////////////////////////////////////////////////////////////////////////
 	/// Buffer Allocate Functions |
 	////////////////////////////////////////////////////////////////////////////////////////////////////
