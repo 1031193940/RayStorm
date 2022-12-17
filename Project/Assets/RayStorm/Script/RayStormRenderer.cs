@@ -64,7 +64,8 @@ namespace RayStorm
 
                 ResetFrameRasterizer();
 
-                RSRenderTask[] CollectedRenderTaskList = RayStormBehaviour.OnFrameCollectRenderTask(Context);
+                RSRenderTask[] CollectedRenderTaskList;
+                RayStormBehaviour.OnFrameCollectRenderTask(Context, out CollectedRenderTaskList);
                 foreach (var RenderTask in CollectedRenderTaskList)
                     Context.RenderTaskQueue.Enqueue(RenderTask);
             }

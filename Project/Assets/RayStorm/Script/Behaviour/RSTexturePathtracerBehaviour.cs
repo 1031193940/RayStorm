@@ -29,7 +29,12 @@ namespace RayStorm
             // !!!TODO
         }
 
-        public override RSRenderTask[] OnFrameCollectRenderTask(RSRenderContext Context)
+        public override void OnFrameCollectSceneObject(RSRenderContext Context, out RSSceneObject[] OutputSceneObject)
+        {
+            base.OnFrameCollectSceneObject(Context, out OutputSceneObject);
+        }
+
+        public override void OnFrameCollectRenderTask(RSRenderContext Context, out RSRenderTask[] OutputRenderTask)
         {
             int TextureWidth = Context.MainCamera.pixelWidth;
             int TextureHeight = Context.MainCamera.pixelHeight;
@@ -66,7 +71,7 @@ namespace RayStorm
                 }
             }
 
-            return RenderTaskList.ToArray();
+            OutputRenderTask = RenderTaskList.ToArray();
         }
 
         public override void OnFrameUpdate(RSRenderContext Context)
@@ -76,14 +81,14 @@ namespace RayStorm
 
         public override void OnFrameFinished(RSRenderContext Context)
         {
-            // !!!TODO
-            Debug.Log("FrameFinished : " + Context.FrameID);
-
             Texture2D RaytraceTexture2D = RSDataUtility.RenderTextureToTexture2D(Context.RaytraceTexture, TextureFormat.ARGB32);
             RSAssetUtility.SaveTexture2D(RaytraceTexture2D, "Assets/RaytraceOutput" + Context.FrameID + ".jpg");
 
             Context.MainCamera.transform.position = Context.MainCamera.transform.position + new Vector3(1, 0, 0);
             Context.MainCamera.transform.LookAt(new Vector3(0, 0.5f, 0), Vector3.up);
+
+            // !!!TODO
+            Debug.Log("FrameFinished : " + Context.FrameID);
         }
     }
 }

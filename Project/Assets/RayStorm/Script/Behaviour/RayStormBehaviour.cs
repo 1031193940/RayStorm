@@ -43,7 +43,7 @@ namespace RayStorm
             OutputSceneObject = RSSceneUtility.CollectSceneObject();
         }
 
-        public virtual RSRenderTask[] OnFrameCollectRenderTask(RSRenderContext Context)
+        public virtual void OnFrameCollectRenderTask(RSRenderContext Context, out RSRenderTask[] OutputRenderTask)
         {
             int TextureWidth = Context.MainCamera.pixelWidth;
             int TextureHeight = Context.MainCamera.pixelHeight;
@@ -82,7 +82,7 @@ namespace RayStorm
                 }
             }
 
-            return RenderTaskList.ToArray();
+            OutputRenderTask = RenderTaskList.ToArray();
         }
 
         public virtual void OnFrameUpdate(RSRenderContext Context)
