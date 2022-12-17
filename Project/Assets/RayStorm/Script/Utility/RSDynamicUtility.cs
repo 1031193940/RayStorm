@@ -31,13 +31,13 @@ namespace RayStorm
         {
             string AssetFilePath = null;
 
-#if UNITY_EDITOR
+            #if UNITY_EDITOR
             {
                 var AssetGUIDList = AssetDatabase.FindAssets(typeof(RSAssetUtility).Name);
                 if (AssetGUIDList != null && AssetGUIDList.Length > 0)
                     AssetFilePath = AssetDatabase.GUIDToAssetPath(AssetGUIDList[0]);
             }
-#endif // UNITY_EDITOR
+            #endif // UNITY_EDITOR
 
             if (AssetFilePath != null)
             {

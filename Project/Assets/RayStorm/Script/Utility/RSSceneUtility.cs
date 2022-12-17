@@ -6,21 +6,6 @@ namespace RayStorm
 {
     public static class RSSceneUtility
     {
-        public enum ESceneObjectType
-        {
-            None = 0,
-            Mesh,
-            Customize,
-        }
-
-        public class SceneObject
-        {
-            public ESceneObjectType Type = ESceneObjectType.None;
-            public Mesh Mesh = null;
-            public Renderer Renderer = null;
-            public RayStormCustomizeObject CustomizeObject = null;
-        }
-
         private class SceneOctreeNode
         {
             public int Depth = 0;
@@ -34,51 +19,35 @@ namespace RayStorm
         // Scene Collect Functions |
         ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-        public static SceneObject[] CollectSceneObject()
+        public static RSSceneObject[] CollectSceneObject()
         {
-            List<SceneObject> SceneObjectList = new List<SceneObject>();
+            List<RSSceneObject> CollectedSceneObjectList = new List<RSSceneObject>();
 
-            var MeshFilterList = CollectSceneComponents<MeshFilter>();
-            foreach (var MeshFilter in MeshFilterList)
+            Renderer[] CollectedMeshRendererList = RSSceneUtility.CollectSceneComponents<Renderer>();
+            foreach (Renderer MeshRenderer in CollectedMeshRendererList)
             {
-                if (MeshFilter.GetComponent<RayStormCustomizeObject>() != null)
-                    continue;
+                if (MeshRenderer is SkinnedMeshRenderer)
+                {
+                    Mesh Mesh = new Mesh();
+                    (MeshRenderer as SkinnedMeshRenderer).BakeMesh(Mesh);
 
-                SceneObject NewSceneObject = new SceneObject();
-                NewSceneObject.Type = ESceneObjectType.Mesh;
-                NewSceneObject.Mesh = MeshFilter.sharedMesh;
-                NewSceneObject.Renderer = MeshFilter.GetComponent<Renderer>();
-                SceneObjectList.Add(NewSceneObject);
+                    RSSceneObject SceneObject = RSSceneObject.Default;
+                    SceneObject.Type = ESceneObjectType.SkeletalMesh;
+                    SceneObject.Renderer = MeshRenderer;
+                    SceneObject.Mesh = Mesh;
+                    CollectedSceneObjectList.Add(SceneObject);
+                }
+                else
+                {
+                    RSSceneObject SceneObject = RSSceneObject.Default;
+                    SceneObject.Type = ESceneObjectType.StaticMesh;
+                    SceneObject.Renderer = MeshRenderer;
+                    SceneObject.Mesh = MeshRenderer.GetComponent<MeshFilter>().sharedMesh;
+                    CollectedSceneObjectList.Add(SceneObject);
+                }
             }
 
-            var SkinnedMeshRendererList = CollectSceneComponents<SkinnedMeshRenderer>();
-            foreach (var SkinnedMeshRenderer in SkinnedMeshRendererList)
-            {
-                if (SkinnedMeshRenderer.GetComponent<RayStormCustomizeObject>() != null)
-                    continue;
-
-                Mesh BakedMesh = new Mesh();
-                SkinnedMeshRenderer.BakeMesh(BakedMesh);
-
-                SceneObject NewSceneObject = new SceneObject();
-                NewSceneObject.Type = ESceneObjectType.Mesh;
-                NewSceneObject.Mesh = BakedMesh;
-                NewSceneObject.Renderer = SkinnedMeshRenderer.GetComponent<Renderer>();
-                SceneObjectList.Add(NewSceneObject);
-            }
-
-            var CustomizeObjectList = CollectSceneComponents<RayStormCustomizeObject>();
-            foreach (var CustomizeObject in CustomizeObjectList)
-            {
-                SceneObject NewSceneObject = new SceneObject();
-                NewSceneObject.Type = ESceneObjectType.Customize;
-                NewSceneObject.Mesh = null;
-                NewSceneObject.Renderer = CustomizeObject.GetComponent<Renderer>();
-                NewSceneObject.CustomizeObject = CustomizeObject;
-                SceneObjectList.Add(NewSceneObject);
-            }
-
-            return SceneObjectList.ToArray();
+            return CollectedSceneObjectList.ToArray();
         }
 
         public static T[] CollectSceneComponents<T>() where T : Object
@@ -168,10 +137,10 @@ namespace RayStorm
 
             var SubtreeOffsetSignList = new Vector3[]
             {
-            new Vector3(-1, -1, -1), new Vector3(-1, -1, 1),
-            new Vector3(-1,  1, -1), new Vector3(-1,  1, 1),
-            new Vector3( 1, -1, -1), new Vector3( 1, -1, 1),
-            new Vector3( 1,  1, -1), new Vector3( 1,  1, 1),
+                new Vector3(-1, -1, -1), new Vector3(-1, -1, 1),
+                new Vector3(-1,  1, -1), new Vector3(-1,  1, 1),
+                new Vector3( 1, -1, -1), new Vector3( 1, -1, 1),
+                new Vector3( 1,  1, -1), new Vector3( 1,  1, 1),
             };
 
             var SceneActiveOctreeList = new List<SceneOctreeNode>();
@@ -237,7 +206,7 @@ namespace RayStorm
             }
         }
 
-        public static void GetSceneAABBBox(SceneObject[] SceneObjects, out Vector3 OutputAABBMin, out Vector3 OutputAABBMax)
+        public static void GetSceneAABBBox(RSSceneObject[] SceneObjects, out Vector3 OutputAABBMin, out Vector3 OutputAABBMax)
         {
             OutputAABBMin = Vector3.zero;
             OutputAABBMax = Vector3.zero;
@@ -267,7 +236,7 @@ namespace RayStorm
 
         public static void GetSceneAABBBox(out Vector3 OutputAABBMin, out Vector3 OutputAABBMax)
         {
-            SceneObject[] SceneObjects = CollectSceneObject();
+            RSSceneObject[] SceneObjects = CollectSceneObject();
             GetSceneAABBBox(SceneObjects, out OutputAABBMin, out OutputAABBMax);
         }
     }

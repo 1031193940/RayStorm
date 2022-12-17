@@ -26,16 +26,6 @@ struct RSGeometryData
 	int indice2;
 };
 
-struct RSObjectData
-{
-	int programID;
-	int materialID;
-	float3 position;
-	float3 rotation;
-	float3 scale;
-	float4 other;
-};
-
 struct RSLightData
 {
 	int programID;

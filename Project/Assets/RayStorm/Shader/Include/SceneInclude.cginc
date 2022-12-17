@@ -5,7 +5,6 @@
 #include "MathInclude.cginc"
 #include "ConfigInclude.cginc"
 
-#include "../Library/DynamicObjectInclude.cginc"
 #include "../Library/DynamicLightInclude.cginc"
 #include "../Library/DynamicMaterialInclude.cginc"
 
@@ -85,7 +84,7 @@ int FindClosestOctreeLeaf(float3 RaySource, float3 RayDirection)
 	return OctreeID;
 }
 
-bool FindClosestGeometryRayHit(RSRayData Ray, out RSRayIntersectData RayIntersectData)
+bool FindClosestRayHit(RSRayData Ray, out RSRayIntersectData RayIntersectData)
 {
 	int ClosestGeometryID = -1;
 	float3 ClosestGeometryWeights = 0.0f;
@@ -142,35 +141,6 @@ bool FindClosestGeometryRayHit(RSRayData Ray, out RSRayIntersectData RayIntersec
 		return true;
 	}
 
-
-	RayIntersectData = (RSRayIntersectData)0;
-	return false;
-}
-
-bool FindClosestCustomizeObjectRayHit(RSRayData Ray, out RSRayIntersectData RayIntersectData)
-{
-	return DynamicObjectRayHit(Ray, RayIntersectData);
-}
-
-bool FindClosestRayHit(RSRayData Ray, out RSRayIntersectData RayIntersectData)
-{
-	RSRayIntersectData GeometryRayIntersectData = (RSRayIntersectData)0;
-	bool IsIntersectWithGeometry = FindClosestGeometryRayHit(Ray, GeometryRayIntersectData);
-
-	RSRayIntersectData CustomizeObjectRayIntersectData = (RSRayIntersectData)0;
-	bool IsIntersectWithCustomizeObject = FindClosestCustomizeObjectRayHit(Ray, CustomizeObjectRayIntersectData);
-
-	if (IsIntersectWithGeometry || IsIntersectWithCustomizeObject)
-	{
-		float GeometryIntersectDistance = IsIntersectWithGeometry ? distance(Ray.position, GeometryRayIntersectData.position) : RAYTRACE_MAX_DISTANCE;
-		float CustomizeObjectIntersectDistance = IsIntersectWithCustomizeObject ? distance(Ray.position, CustomizeObjectRayIntersectData.position) : RAYTRACE_MAX_DISTANCE;
-		if (CustomizeObjectIntersectDistance < GeometryIntersectDistance)
-			RayIntersectData = CustomizeObjectRayIntersectData;
-		else 
-			RayIntersectData = GeometryRayIntersectData;
-
-		return true;
-	}
 
 	RayIntersectData = (RSRayIntersectData)0;
 	return false;

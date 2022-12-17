@@ -7,7 +7,6 @@ namespace RayStorm
     public class RSRenderContext
     {
         public Camera MainCamera = null;
-        public RSSceneData SceneData;
         public RenderTexture RaytraceTexture = null;
 
         public int FrameID = 0;
