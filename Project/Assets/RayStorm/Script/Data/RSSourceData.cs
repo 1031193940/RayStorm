@@ -1,25 +1,28 @@
 ﻿using UnityEngine;
 
-public struct RSSourceData
+namespace RayStorm
 {
-    public Vector2 ID;
-    public Vector3 Position;
-    public Vector3 Direction;
-    public Vector3 Energy;
-
-    public static RSSourceData Default
+    public struct RSSourceData
     {
-        get
+        public Vector2 ID;
+        public Vector3 Position;
+        public Vector3 Direction;
+        public Vector3 Energy;
+
+        public static RSSourceData Default
         {
-            RSSourceData DefaultSourceData = default(RSSourceData);
-            DefaultSourceData.Direction = Vector3.forward;
-            DefaultSourceData.Energy = Vector3.one;
-            return DefaultSourceData;
+            get
+            {
+                RSSourceData DefaultSourceData = default(RSSourceData);
+                DefaultSourceData.Direction = Vector3.forward;
+                DefaultSourceData.Energy = Vector3.one;
+                return DefaultSourceData;
+            }
         }
-    }
 
-    public static int GetDataSize()
-    {
-        return sizeof(float) * (2 + 3 + 3 + 3);
+        public static int GetDataSize()
+        {
+            return sizeof(float) * (2 + 3 + 3 + 3);
+        }
     }
 }

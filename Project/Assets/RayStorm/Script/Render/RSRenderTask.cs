@@ -2,18 +2,21 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class RSRenderTask
+namespace RayStorm
 {
-    public int FrameID = 0;
-    public int SubpixelCountPerPixel = 1;
-    public Vector2Int WindowPos = Vector2Int.zero;
-    public Vector2Int WindowSize = Vector2Int.one;
-
-    public static RSRenderTask Default
+    public class RSRenderTask
     {
-        get
+        public int FrameID = 0;
+        public int SubpixelCountPerPixel = 1;
+        public Vector2Int WindowPos = Vector2Int.zero;
+        public Vector2Int WindowSize = Vector2Int.one;
+
+        public static RSRenderTask Default
         {
-            return new RSRenderTask();
+            get
+            {
+                return new RSRenderTask();
+            }
         }
     }
 }

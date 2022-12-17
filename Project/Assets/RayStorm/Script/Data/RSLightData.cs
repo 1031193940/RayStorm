@@ -1,27 +1,30 @@
 using UnityEngine;
 
-public struct RSLightData
+namespace RayStorm
 {
-    public int ProgramID;
-    public Vector3 Position;
-    public Vector3 Direction;
-    public Vector3 Color;
-    public Vector4 Data;
-
-    public static RSLightData Default
+    public struct RSLightData
     {
-        get
+        public int ProgramID;
+        public Vector3 Position;
+        public Vector3 Direction;
+        public Vector3 Color;
+        public Vector4 Data;
+
+        public static RSLightData Default
         {
-            RSLightData DefaultLightData = default(RSLightData);
-            DefaultLightData.ProgramID = -1;
-            DefaultLightData.Direction = Vector3.forward;
-            DefaultLightData.Color = Vector3.one;
-            return DefaultLightData;
+            get
+            {
+                RSLightData DefaultLightData = default(RSLightData);
+                DefaultLightData.ProgramID = -1;
+                DefaultLightData.Direction = Vector3.forward;
+                DefaultLightData.Color = Vector3.one;
+                return DefaultLightData;
+            }
         }
-    }
 
-    public static int GetDataSize()
-    {
-        return sizeof(int) + sizeof(float) * (3 + 3 + 3 + 4);
+        public static int GetDataSize()
+        {
+            return sizeof(int) + sizeof(float) * (3 + 3 + 3 + 4);
+        }
     }
 }

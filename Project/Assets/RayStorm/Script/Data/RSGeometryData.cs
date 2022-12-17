@@ -1,23 +1,26 @@
 using UnityEngine;
 
-public struct RSGeometryData
+namespace RayStorm
 {
-    public int MaterialID;
-    public int Indice0;
-    public int Indice1;
-    public int Indice2;
-
-    public static RSGeometryData Default
+    public struct RSGeometryData
     {
-        get
+        public int MaterialID;
+        public int Indice0;
+        public int Indice1;
+        public int Indice2;
+
+        public static RSGeometryData Default
         {
-            RSGeometryData DefaultGeometryData = default(RSGeometryData);
-            return DefaultGeometryData;
+            get
+            {
+                RSGeometryData DefaultGeometryData = default(RSGeometryData);
+                return DefaultGeometryData;
+            }
         }
-    }
 
-    public static int GetDataSize()
-    {
-        return sizeof(int) * 4;
+        public static int GetDataSize()
+        {
+            return sizeof(int) * 4;
+        }
     }
 }

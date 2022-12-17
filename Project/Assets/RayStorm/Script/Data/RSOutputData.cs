@@ -1,20 +1,23 @@
 ﻿using UnityEngine;
 
-public struct RSOutputData
+namespace RayStorm
 {
-    public Vector4 Data;
-
-    public static RSOutputData Default
+    public struct RSOutputData
     {
-        get
+        public Vector4 Data;
+
+        public static RSOutputData Default
         {
-            RSOutputData DefaultOutputData = default(RSOutputData);
-            return DefaultOutputData;
+            get
+            {
+                RSOutputData DefaultOutputData = default(RSOutputData);
+                return DefaultOutputData;
+            }
         }
-    }
 
-    public static int GetDataSize()
-    {
-        return sizeof(float) * (4);
+        public static int GetDataSize()
+        {
+            return sizeof(float) * (4);
+        }
     }
 }

@@ -2,13 +2,16 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class RSRenderContext
+namespace RayStorm
 {
-    public Camera MainCamera = null;
-    public RSSceneData SceneData;
-    public RenderTexture RaytraceTexture = null;
+    public class RSRenderContext
+    {
+        public Camera MainCamera = null;
+        public RSSceneData SceneData;
+        public RenderTexture RaytraceTexture = null;
 
-    public int FrameID = 0;
-    public bool IsRunning = true;
-    public Queue<RSRenderTask> RenderTaskQueue = null;
+        public int FrameID = 0;
+        public bool IsRunning = true;
+        public Queue<RSRenderTask> RenderTaskQueue = null;
+    }
 }

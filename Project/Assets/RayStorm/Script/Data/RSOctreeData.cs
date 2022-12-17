@@ -1,26 +1,29 @@
 using UnityEngine;
 
-public struct RSOctreeData
+namespace RayStorm
 {
-    public int ParentTreeID;
-    public int SubtreeStartID;
-    public int SubtreeCount;
-    public int GeometryStartID;
-    public int GeometryCount;
-    public Vector3 Center;
-    public Vector3 Size;
-
-    public static RSOctreeData Default
+    public struct RSOctreeData
     {
-        get
+        public int ParentTreeID;
+        public int SubtreeStartID;
+        public int SubtreeCount;
+        public int GeometryStartID;
+        public int GeometryCount;
+        public Vector3 Center;
+        public Vector3 Size;
+
+        public static RSOctreeData Default
         {
-            RSOctreeData NewOctreeData = default(RSOctreeData);
-            return NewOctreeData;
+            get
+            {
+                RSOctreeData NewOctreeData = default(RSOctreeData);
+                return NewOctreeData;
+            }
         }
-    }
 
-    public static int GetDataSize()
-    {
-        return sizeof(int) * 5 + sizeof(float) * (3 + 3);
+        public static int GetDataSize()
+        {
+            return sizeof(int) * 5 + sizeof(float) * (3 + 3);
+        }
     }
 }
