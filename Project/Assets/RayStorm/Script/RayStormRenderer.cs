@@ -40,8 +40,6 @@ namespace RayStorm
 
         public void Start()
         {
-            RecompileProgramLibraries();
-
             InitializeRenderContext();
 
             InitializeRenderShaders();
@@ -320,8 +318,17 @@ namespace RayStorm
                         MeshVertex.Position = SceneObject.Renderer.transform.TransformPoint(MeshVertices[VertexID]);
                         MeshVertex.Normal = SceneObject.Renderer.transform.TransformVector(MeshNormals[VertexID]);
                         MeshVertex.Tangent = SceneObject.Renderer.transform.TransformVector(MeshTangents[VertexID]);
-                        MeshVertex.UV0 = MeshTexcoord0[VertexID];
-                        MeshVertex.UV1 = MeshTexcoord1[VertexID];
+
+                        if (MeshTexcoord0 != null && MeshTexcoord0.Length > 0)
+                            MeshVertex.UV0 = MeshTexcoord0[VertexID];
+                        else
+                            MeshVertex.UV0 = Vector2.zero;
+
+                        if (MeshTexcoord1 != null && MeshTexcoord1.Length > 0)
+                            MeshVertex.UV1 = MeshTexcoord1[VertexID];
+                        else
+                            MeshVertex.UV1 = Vector2.zero;
+
                         SceneVertexList.Add(MeshVertex);
                     }
                 }

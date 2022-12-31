@@ -5,34 +5,10 @@
 #include "MathInclude.cginc"
 #include "ConfigInclude.cginc"
 
-#include "../Library/DynamicLightInclude.cginc"
-#include "../Library/DynamicMaterialInclude.cginc"
-
 StructuredBuffer<RSVertexData>   RSSceneVertexBuffer;
 StructuredBuffer<RSGeometryData> RSSceneGeometryBuffer;
 StructuredBuffer<RSOctreeData>   RSSceneOctreeBuffer;
 StructuredBuffer<int> RSSceneOctreeGeometryIDBuffer;
-TextureCube<float4> RSSkyboxTexture; SamplerState sampler_RSSkyboxTexture;
-
-////////////////////////////////////////////////////////////////////////////////////////////////////
-// Material |
-////////////////////////////////////////////////////////////////////////////////////////////////////
-
-float3 RayShadeMaterial(inout RSRayData Ray, in RSRayIntersectData RayIntersectData)
-{
-	return DynamicMaterialRayIntersect(Ray, RayIntersectData);
-}
-
-float3 RayShadeLight(in RSLightData LightData, in RSRayData RayData, in RSRayIntersectData RayIntersectData, float3 L, float Shadow)
-{
-	return DynamicMaterialLightShade(LightData, RayData, RayIntersectData, L, Shadow);
-}
-
-float3 RayShadeSkybox(inout RSRayData Ray, in RSRayIntersectData RayIntersectData)
-{
-	Ray.energy = 0.0f;
-	return RSSkyboxTexture.SampleLevel(sampler_RSSkyboxTexture, Ray.direction, 0.0f).xyz;
-}
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Scene |

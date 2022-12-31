@@ -7,8 +7,9 @@ namespace RayStorm
         public int ProgramID;
         public Vector3 Albedo;
         public Vector3 Emission;
+        public float Metallic;
         public float Roughness;
-        public Vector4 Extra;
+        public float IndexOfRefraction;
 
         public static RSMaterialData Default
         {
@@ -22,7 +23,7 @@ namespace RayStorm
 
         public static int GetDataSize()
         {
-            return sizeof(int) * 1 + sizeof(float) * (3 + 3 + 1 + 4);
+            return sizeof(int) * 1 + sizeof(float) * (3 + 3 + 1 + 1 + 1);
         }
 
         public static RSMaterialData CreateFromUnityMaterial(Material SourceMaterial)
@@ -37,6 +38,10 @@ namespace RayStorm
                 if (SourceMaterial.HasProperty("_EmissionColor"))
                     Emission = RSDataUtility.ColorToVector(SourceMaterial.GetColor("_EmissionColor"));
 
+                float Metallic = 1.0f;
+                if (SourceMaterial.HasProperty("_Metallic"))
+                    Metallic = SourceMaterial.GetFloat("_Metallic");
+
                 float Roughness = 0.0f;
                 if (SourceMaterial.HasProperty("_Roughness"))
                     Roughness = SourceMaterial.GetFloat("_Roughness");
@@ -47,7 +52,9 @@ namespace RayStorm
 
                 NewMaterialData.Albedo = Albedo;
                 NewMaterialData.Emission = Emission;
+                NewMaterialData.Metallic = Metallic;
                 NewMaterialData.Roughness = Roughness;
+                NewMaterialData.IndexOfRefraction = 1.2f;
             }
 
             return NewMaterialData;

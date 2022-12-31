@@ -40,8 +40,9 @@ struct RSMaterialData
 	int programID;
 	float3 albedo;
 	float3 emission;
+	float  metallic;
 	float  roughness;
-	float4 extra;
+	float  IOR;
 };
 
 struct RSOctreeData

@@ -1,7 +1,7 @@
 
 float3 OnMaterialRayIntersectProgram(in RSMaterialData MaterialData, inout RSRayData Ray, in RSRayIntersectData RayIntersectData)
 {
-    float IndexOfRefraction = MaterialData.extra.x;
+    float IndexOfRefraction = MaterialData.IOR;
     IndexOfRefraction = 1.2f; // !!!DEBUG
 
     float  IOR = IndexOfRefraction;
@@ -22,8 +22,8 @@ float3 OnMaterialRayIntersectProgram(in RSMaterialData MaterialData, inout RSRay
     else 
         RefractDirection = reflect(-V, N);
 
-    float RefractNormalSign = dot(N, RefractDirection);
-    float RefractNormalDirection = normalize(N * RefractNormalSign);
+    float  RefractNormalSign = dot(N, RefractDirection);
+    float3 RefractNormalDirection = normalize(N * RefractNormalSign);
 
     Ray.energy *= MaterialData.albedo;
     Ray.energy *= exp(-distance(Ray.position, RayIntersectData.position) * (1.0f - MaterialData.albedo) * 0.1f);

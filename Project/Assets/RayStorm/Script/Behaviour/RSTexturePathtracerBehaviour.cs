@@ -18,10 +18,10 @@ namespace RayStorm
 
         public override void OnStartup(RSRenderContext Context)
         {
-            FrameCount = 10;
+            FrameCount = 1;
 
-            Context.MainCamera.transform.position = new Vector3(-5, 3, -5);
-            Context.MainCamera.transform.LookAt(new Vector3(0, 0.5f, 0), Vector3.up);
+            //Context.MainCamera.transform.position = new Vector3(-5, 3, -5);
+            //Context.MainCamera.transform.LookAt(new Vector3(0, 0.5f, 0), Vector3.up);
         }
 
         public override void OnFrameStartup(RSRenderContext Context)
@@ -40,7 +40,7 @@ namespace RayStorm
             int TextureHeight = Context.MainCamera.pixelHeight;
 
             List<RSRenderTask> RenderTaskList = new List<RSRenderTask>();
-            for (int IterID = 0; IterID < 2; ++IterID)
+            for (int IterID = 0; IterID < 5; ++IterID)
             {
                 int RenderWindowSize;
                 int SubpixelCountPerPixel;
@@ -49,10 +49,15 @@ namespace RayStorm
                     RenderWindowSize = 64;
                     SubpixelCountPerPixel = 16;
                 }
+                else if (IterID == 1)
+                {
+                    RenderWindowSize = 64;
+                    SubpixelCountPerPixel = 32;
+                }
                 else
                 {
-                    RenderWindowSize = 32;
-                    SubpixelCountPerPixel = 128;
+                    RenderWindowSize = 16;
+                    SubpixelCountPerPixel = 256;
                 }
 
                 int RenderWindowCountRow = Mathf.CeilToInt(TextureHeight / (float)RenderWindowSize);
@@ -84,8 +89,8 @@ namespace RayStorm
             Texture2D RaytraceTexture2D = RSDataUtility.RenderTextureToTexture2D(Context.RaytraceTexture, TextureFormat.ARGB32);
             RSAssetUtility.SaveTexture2D(RaytraceTexture2D, "Assets/RaytraceOutput" + Context.FrameID + ".jpg");
 
-            Context.MainCamera.transform.position = Context.MainCamera.transform.position + new Vector3(1, 0, 0);
-            Context.MainCamera.transform.LookAt(new Vector3(0, 0.5f, 0), Vector3.up);
+            //Context.MainCamera.transform.position = Context.MainCamera.transform.position + new Vector3(1, 0, 0);
+            //Context.MainCamera.transform.LookAt(new Vector3(0, 0.5f, 0), Vector3.up);
 
             // !!!TODO
             Debug.Log("FrameFinished : " + Context.FrameID);
