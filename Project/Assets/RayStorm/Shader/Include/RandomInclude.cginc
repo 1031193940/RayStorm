@@ -15,7 +15,8 @@ float RSRandomSeed = 0.0f;
 
 inline float Random01(float2 seed)
 {
-	return frac(sin(dot(seed + float2(RSRandomSeed++, RSRandomSeed++), float2(12.9898f, 78.233f))) * 43758.5453123f);
+	RSRandomSeed++;
+	return frac(sin(dot(seed + float2(RSRandomSeed, RSRandomSeed), float2(12.9898f, 78.233f))) * 43758.5453123f);
 }
 
 inline float RandomRange(float2 seed, float randomMin, float randomMax)
