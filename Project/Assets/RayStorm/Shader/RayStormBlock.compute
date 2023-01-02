@@ -1,0 +1,28 @@
+#include "Include/DataInclude.cginc"
+#include "Include/MathInclude.cginc"
+#include "Include/RandomInclude.cginc"
+#include "Include/ConfigInclude.cginc"
+
+#pragma kernel CSKernelMain
+
+uint BlockPosX;
+uint BlockPosY;
+uint BlockSizeX;
+uint BlockSizeY;
+float4 BlockColor;
+Texture2D<float4> Source;
+RWTexture2D<float4> Target;
+
+[numthreads(32, 32, 1)]
+void CSKernelMain(uint3 id : SV_DispatchThreadID)
+{
+	float3 FinalColor = Source[id.xy].rgb;
+	
+	if (id.x >= BlockPosX && id.x <= BlockPosX + BlockSizeX &&
+		id.y >= BlockPosY && id.y <= BlockPosY + BlockSizeY)
+	{
+		FinalColor = lerp(FinalColor, BlockColor.rgb, BlockColor.a);
+	}
+
+	Target[id.xy] = float4(FinalColor, 1.0);
+}

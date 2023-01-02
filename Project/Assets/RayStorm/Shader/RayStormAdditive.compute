@@ -5,10 +5,9 @@
 
 uint RaytraceWindowPosX;
 uint RaytraceWindowPosY;
-uint RaytraceWindowPosZ;
 uint RaytraceWindowSizeX;
 uint RaytraceWindowSizeY;
-uint RaytraceWindowSizeZ;
+uint SubpixelCountPerPixel;
 StructuredBuffer<RSOutputData> RaytraceWindowBuffer;
 RWTexture2D<float4> RaytraceOutputTexture;
 
@@ -19,13 +18,13 @@ void CSKernelMain(uint3 id : SV_DispatchThreadID)
 		return;
 
 	uint PixelID = id.x;
-	uint SubpixelStartID = PixelID * RaytraceWindowSizeZ;
+	uint SubpixelStartID = PixelID * SubpixelCountPerPixel;
 
 	float4 RaytraceColor = 0.0f;
-	for (uint LocalID = 0; LocalID < RaytraceWindowSizeZ; ++LocalID)
+	for (uint LocalID = 0; LocalID < SubpixelCountPerPixel; ++LocalID)
 	{
 		uint SubpixelID = SubpixelStartID + LocalID;
-		RaytraceColor += RaytraceWindowBuffer[SubpixelID].data * rcp(RaytraceWindowSizeZ);
+		RaytraceColor += RaytraceWindowBuffer[SubpixelID].data * rcp(SubpixelCountPerPixel);
 	}
 
 	uint2 TexturePixelID = int2(RaytraceWindowPosX, RaytraceWindowPosY) + int2(PixelID % RaytraceWindowSizeX, PixelID / RaytraceWindowSizeX);

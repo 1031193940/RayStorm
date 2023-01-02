@@ -19,6 +19,7 @@ namespace RayStorm
 
         private ComputeShader RaytraceComputeShader = null;
         private ComputeShader AdditiveComputeShader = null;
+        private ComputeShader BlockComputeShader = null;
 
         private ComputeBuffer SceneVertexBuffer = null;
         private ComputeBuffer SceneGeometryBuffer = null;
@@ -27,6 +28,8 @@ namespace RayStorm
         private ComputeBuffer SceneOctreeGeometryIDBuffer = null;
         private ComputeBuffer RaytraceSourceBuffer = null;
         private ComputeBuffer RaytraceOutputBuffer = null;
+
+        private RenderTexture DisplayTexture = null;
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////
         /// Unity Functions | 
@@ -83,7 +86,7 @@ namespace RayStorm
 
         public void OnRenderImage(RenderTexture Source, RenderTexture Destination)
         {
-            Graphics.Blit(Context.RaytraceTexture, Destination);
+            Graphics.Blit(DisplayTexture, Destination);
         }
 
         public void LateUpdate()
@@ -194,30 +197,24 @@ namespace RayStorm
             int AdditiveKernelID = AdditiveComputeShader.FindKernel("CSKernelMain");
             AdditiveComputeShader.SetInt("RaytraceWindowPosX", RenderTask.WindowPos.x);
             AdditiveComputeShader.SetInt("RaytraceWindowPosY", RenderTask.WindowPos.y);
-            AdditiveComputeShader.SetInt("RaytraceWindowPosZ", RenderTask.FrameID);
             AdditiveComputeShader.SetInt("RaytraceWindowSizeX", RenderTask.WindowSize.x);
             AdditiveComputeShader.SetInt("RaytraceWindowSizeY", RenderTask.WindowSize.y);
-            AdditiveComputeShader.SetInt("RaytraceWindowSizeZ", RenderTask.SubpixelCountPerPixel);
+            AdditiveComputeShader.SetInt("SubpixelCountPerPixel", RenderTask.SubpixelCountPerPixel);
             AdditiveComputeShader.SetTexture(AdditiveKernelID, "RaytraceOutputTexture", Context.RaytraceTexture);
             AdditiveComputeShader.SetBuffer(AdditiveKernelID, "RaytraceWindowBuffer", RaytraceOutputBuffer);
             AdditiveComputeShader.Dispatch(AdditiveKernelID, AdditiveThreadGroupX, 1, 1);
-        }
 
-        private void RecompileProgramLibraries()
-        {
-            var ToolkitLibraryFolder = RSDynamicUtility.GetToolkitLibraryDirectory();
-
-            // Recompile dynamic light program include file
-            var LightLibraryTemplateFilePath = ToolkitLibraryFolder + "Light/Template";
-            var LightLibraryOutputFilePath = ToolkitLibraryFolder + "DynamicLightInclude.cginc";
-            var DynamicLightPrograms = RSDynamicUtility.FindDynamicProgramsInFolder(ToolkitLibraryFolder + "Light/");
-            RSDynamicUtility.CompileProgramFileWithTemplate(LightLibraryTemplateFilePath, LightLibraryOutputFilePath, DynamicLightPrograms);
-
-            // Recompile dynamic material program include file
-            var MaterialLibraryTemplateFilePath = ToolkitLibraryFolder + "Material/Template";
-            var MaterialLibraryOutputFilePath = ToolkitLibraryFolder + "DynamicMaterialInclude.cginc";
-            var DynamicMaterialPrograms = RSDynamicUtility.FindDynamicProgramsInFolder(ToolkitLibraryFolder + "Material/");
-            RSDynamicUtility.CompileProgramFileWithTemplate(MaterialLibraryTemplateFilePath, MaterialLibraryOutputFilePath, DynamicMaterialPrograms);
+            int BlockThreadGroupX = Mathf.CeilToInt(Context.RaytraceTexture.width / 32.0f);
+            int BlockThreadGroupY = Mathf.CeilToInt(Context.RaytraceTexture.height/ 32.0f);
+            int BlockKernelID = BlockComputeShader.FindKernel("CSKernelMain");
+            BlockComputeShader.SetInt("BlockPosX", RenderTask.WindowPos.x);
+            BlockComputeShader.SetInt("BlockPosY", RenderTask.WindowPos.y);
+            BlockComputeShader.SetInt("BlockSizeX", RenderTask.WindowSize.x);
+            BlockComputeShader.SetInt("BlockSizeY", RenderTask.WindowSize.y);
+            BlockComputeShader.SetVector("BlockColor", new Vector4(0, 1, 1, 0.2f));
+            BlockComputeShader.SetTexture(BlockKernelID, "Source", Context.RaytraceTexture);
+            BlockComputeShader.SetTexture(BlockKernelID, "Target", DisplayTexture);
+            BlockComputeShader.Dispatch(BlockKernelID, BlockThreadGroupX, BlockThreadGroupY, 1);
         }
 
         private void InitializeRenderContext()
@@ -231,6 +228,12 @@ namespace RayStorm
             RaytraceTexture.enableRandomWrite = true;
             RaytraceTexture.filterMode = FilterMode.Point;
             RaytraceTexture.Create();
+
+            DisplayTexture = new RenderTexture(TextureWidth, TextureHeight, 0, RenderTextureFormat.Default, RenderTextureReadWrite.Linear);
+            DisplayTexture.useMipMap = false;
+            DisplayTexture.enableRandomWrite = true;
+            DisplayTexture.filterMode = FilterMode.Point;
+            DisplayTexture.Create();
 
             Context = new RSRenderContext();
             Context.FrameID = 0;
@@ -257,6 +260,9 @@ namespace RayStorm
 
             // Load additive compute shader and setup constant uniform variables
             AdditiveComputeShader = RSAssetUtility.LoadAsset<ComputeShader>("RayStormAdditive");
+
+            // Load color block compute shader
+            BlockComputeShader = RSAssetUtility.LoadAsset<ComputeShader>("RayStormBlock");
         }
 
         private void ReloadFrameScene()
