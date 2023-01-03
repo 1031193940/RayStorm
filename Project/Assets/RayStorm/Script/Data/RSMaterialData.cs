@@ -1,4 +1,5 @@
 ﻿using UnityEngine;
+using UnityEngine.Rendering;
 
 namespace RayStorm
 {
@@ -9,6 +10,7 @@ namespace RayStorm
         public Vector3 Emission;
         public float Metallic;
         public float Roughness;
+        public float Transparency;
         public float IndexOfRefraction;
 
         public static RSMaterialData Default
@@ -23,7 +25,7 @@ namespace RayStorm
 
         public static int GetDataSize()
         {
-            return sizeof(int) * 1 + sizeof(float) * (3 + 3 + 1 + 1 + 1);
+            return sizeof(int) * 1 + sizeof(float) * (3 + 3 + 1 + 1 + 1 + 1);
         }
 
         public static RSMaterialData CreateFromUnityMaterial(Material SourceMaterial)
@@ -50,11 +52,16 @@ namespace RayStorm
                 else if (SourceMaterial.HasProperty("_Glossiness"))
                     Roughness = 1.0f - SourceMaterial.GetFloat("_Glossiness");
 
+                float Transparency = 0.0f;
+                if (SourceMaterial.renderQueue == (int)RenderQueue.Transparent)
+                    Transparency = 1.0f;
+
                 NewMaterialData.Albedo = Albedo;
                 NewMaterialData.Emission = Emission;
                 NewMaterialData.Metallic = Metallic;
                 NewMaterialData.Roughness = Roughness;
-                NewMaterialData.IndexOfRefraction = 1.2f;
+                NewMaterialData.Transparency = Transparency;
+                NewMaterialData.IndexOfRefraction = 1.4f;
             }
 
             return NewMaterialData;

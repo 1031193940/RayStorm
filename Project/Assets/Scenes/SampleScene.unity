@@ -38,7 +38,7 @@ RenderSettings:
   m_ReflectionIntensity: 1
   m_CustomReflection: {fileID: 0}
   m_Sun: {fileID: 705507994}
-  m_IndirectSpecularColor: {r: 0.44657826, g: 0.49641263, b: 0.57481676, a: 1}
+  m_IndirectSpecularColor: {r: 0.44657898, g: 0.4964133, b: 0.5748178, a: 1}
   m_UseRadianceAmbientProbe: 0
 --- !u!157 &3
 LightmapSettings:
@@ -377,8 +377,8 @@ Transform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 963194225}
-  m_LocalRotation: {x: 0.2943655, y: -0.5986026, z: 0.25124016, w: 0.7013575}
-  m_LocalPosition: {x: 2.8436391, y: 2.9338338, z: -0.4523803}
+  m_LocalRotation: {x: 0.03249781, y: 0.924496, z: -0.08068697, w: 0.3711343}
+  m_LocalPosition: {x: -2.8317688, y: 1.5637665, z: 2.8745403}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -397,6 +397,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0a31dc4f5f948d54396669f0ec257266, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  IsDisplayOctree: 0
+  SkyboxTexture: {fileID: 8900000, guid: a4508ee0e2efe6b4ca769090626c6933, type: 3}
   RayStormBehaviour: {fileID: 1664656624}
 --- !u!1 &1033682807
 GameObject:
@@ -436,7 +438,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 12c558b72fe43d3409f46f3d8f633094, type: 2}
+  - {fileID: 2100000, guid: 00ed177aea214b74ca5fe80cd5f40ae1, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -474,8 +476,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1033682807}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0.5, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalPosition: {x: 0, y: 1, z: 0}
+  m_LocalScale: {x: 2, y: 2, z: 2}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
@@ -555,7 +557,4 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f4c2f02e4b3b5e044b3afcdd8dc7b134, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  IsDisplayOctree: 0
-  IsContinueIteration: 0
-  SkyboxTexture: {fileID: 8900000, guid: 6e8c9b301b6e7ce44844a3d05420f8b4, type: 3}
-  RaytraceWindowSize: {x: 32, y: 32, z: 64}
+  FrameCount: 0

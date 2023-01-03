@@ -43,7 +43,7 @@ float3 RayHitDiffuseSurface(inout RSRayData Ray, in RSRayIntersectData RayInters
 	return MaterialData.emission;
 }
 
-float3 RayHitDielectricSurface(inout RSRayData Ray, in RSRayIntersectData RayIntersectData, in RSMaterialData MaterialData)
+float3 RayHitTransparencyDielectricSurface(inout RSRayData Ray, in RSRayIntersectData RayIntersectData, in RSMaterialData MaterialData)
 {
 	float3 V = -Ray.direction;
 	float3 N = RayIntersectData.normal;
@@ -85,6 +85,37 @@ float3 RayHitDielectricSurface(inout RSRayData Ray, in RSRayIntersectData RayInt
 	return MaterialData.emission;
 }
 
+float3 RayHitOpaqueDielectricSurface(inout RSRayData Ray, in RSRayIntersectData RayIntersectData, in RSMaterialData MaterialData)
+{
+	float3 V = -Ray.direction;
+	float3 N = RayIntersectData.normal;
+
+	float ProbabilityOfReflection = FresnelSchlickIOR(dot(N, V), MaterialData.IOR);
+	if (Random01(Ray.id) > ProbabilityOfReflection)
+	{
+		// Diffuse
+		float3 LocalBounceDirection = UniformSampleHemisphere(Ray.id);
+		float4 QuaternionLocalToWorld = QuaternionFromTo(float3(0, 0, 1), N);
+		float3 WorldBounceDirection = QuaternionRotate(QuaternionLocalToWorld, LocalBounceDirection);
+
+		Ray.energy *= MaterialData.albedo;
+		Ray.direction = normalize(WorldBounceDirection);
+		Ray.position = RayIntersectData.position + N * RAYTRACE_EPSILON;
+	}
+	else
+	{
+		// Specular
+		if (MaterialData.roughness > 0.001f)
+			N = RoughnessNormal(Ray.id, N, MaterialData.roughness);
+
+		Ray.energy *= 1.0f;
+		Ray.direction = normalize(reflect(-V, N));
+		Ray.position = RayIntersectData.position + N * RAYTRACE_EPSILON;
+	}
+	
+	return MaterialData.emission;
+}
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Ray Shade Function |
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -102,10 +133,16 @@ float3 RayHitSurface(inout RSRayData Ray, in RSRayIntersectData RayIntersectData
 
 	bool IsMetal = MaterialData.metallic > 0.01f;
 	bool IsFullRough = MaterialData.roughness > 0.99f;
+	bool IsTransparency = MaterialData.transparency > 0.01f;
 	if (!IsMetal)
 	{
 		if (!IsFullRough)
-			return RayHitDielectricSurface(Ray, RayIntersectData, MaterialData);
+		{
+			if (!IsTransparency)
+				return RayHitOpaqueDielectricSurface(Ray, RayIntersectData, MaterialData);
+			else
+				return RayHitTransparencyDielectricSurface(Ray, RayIntersectData, MaterialData);
+		}
 		else
 			return RayHitDiffuseSurface(Ray, RayIntersectData, MaterialData);
 	}

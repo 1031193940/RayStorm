@@ -42,6 +42,7 @@ struct RSMaterialData
 	float3 emission;
 	float  metallic;
 	float  roughness;
+	float  transparency;
 	float  IOR;
 };
 
