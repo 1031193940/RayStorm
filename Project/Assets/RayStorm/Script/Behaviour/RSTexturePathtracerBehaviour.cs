@@ -40,7 +40,7 @@ namespace RayStorm
             int TextureHeight = Context.MainCamera.pixelHeight;
 
             List<RSRenderTask> RenderTaskList = new List<RSRenderTask>();
-            for (int IterID = 0; IterID < 4; ++IterID)
+            for (int IterID = 0; IterID < 5; ++IterID)
             {
                 int RenderWindowSize;
                 int SubpixelCountPerPixel;
@@ -56,7 +56,7 @@ namespace RayStorm
                 }
                 else
                 {
-                    RenderWindowSize = 32;
+                    RenderWindowSize = 16;
                     SubpixelCountPerPixel = 256;
                 }
 

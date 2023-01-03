@@ -64,7 +64,7 @@ float3 RayHitTransparencyDielectricSurface(inout RSRayData Ray, in RSRayIntersec
 		if (MaterialData.roughness > 0.001f)
 			N = RoughnessNormal(Ray.id, N, MaterialData.roughness);
 
-		Absorption = exp(-distance(Ray.position, RayIntersectData.position) * (1.0 - MaterialData.albedo));
+		Absorption = exp(-distance(Ray.position, RayIntersectData.position) * (1.0 - MaterialData.albedo) * 10.0f);
 
 		IOR = rcp(IOR);
 	}
