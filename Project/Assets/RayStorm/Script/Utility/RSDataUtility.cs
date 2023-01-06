@@ -113,6 +113,7 @@ namespace RayStorm
 				if (CubemapFaceType != CubemapFace.Unknown)
 					NewCubemap.SetPixels(Colors, CubemapFaceType);
 			}
+			NewCubemap.Apply();
 
 			return NewCubemap;
 		}
