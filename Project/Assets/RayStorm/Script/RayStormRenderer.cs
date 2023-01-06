@@ -24,6 +24,7 @@ namespace RayStorm
         private ComputeBuffer SceneVertexBuffer = null;
         private ComputeBuffer SceneGeometryBuffer = null;
         private ComputeBuffer SceneMaterialBuffer = null;
+        private ComputeBuffer SceneEmissionIDBuffer = null;
         private ComputeBuffer SceneOctreeBuffer = null;
         private ComputeBuffer SceneOctreeGeometryIDBuffer = null;
         private ComputeBuffer RaytraceSourceBuffer = null;
@@ -270,47 +271,30 @@ namespace RayStorm
             RSSceneObject[] CollectedSceneObjects;
             RayStormBehaviour.OnFrameCollectSceneObject(Context, out CollectedSceneObjects);
 
-            // Find Dynamic Programs
-            var ToolkitLibraryFolder = RSDynamicUtility.GetToolkitLibraryDirectory();
-            var DynamicMaterialPrograms = RSDynamicUtility.FindDynamicProgramsInFolder(ToolkitLibraryFolder + "Material/");
-
             List<RSVertexData> SceneVertexList = new List<RSVertexData>();
             List<RSGeometryData> SceneGeometryList = new List<RSGeometryData>();
             List<RSMaterialData> SceneMaterialList = new List<RSMaterialData>();
+            List<int> SceneEmissionIDList = new List<int>();
             foreach (RSSceneObject SceneObject in CollectedSceneObjects)
             {
                 int[] MeshIndices = SceneObject.Mesh.triangles;
                 for (int SubmeshID = 0; SubmeshID < SceneObject.Mesh.subMeshCount; ++SubmeshID)
                 {
+                    int GeometryMaterialID = SceneMaterialList.Count;
+
+                    Material UnityMaterial = SceneObject.Renderer.sharedMaterials[SubmeshID];
+                    RSMaterialData MeshMaterial = RSMaterialData.CreateFromUnityMaterial(UnityMaterial);
+                    SceneMaterialList.Add(MeshMaterial);
+
                     SubMeshDescriptor SubmeshDescriptor = SceneObject.Mesh.GetSubMesh(SubmeshID);
                     for (int SubmeshIndiceID = 0; SubmeshIndiceID < SubmeshDescriptor.indexCount; SubmeshIndiceID += 3)
                     {
                         RSGeometryData Geometry = RSGeometryData.Default;
-                        Geometry.MaterialID = SceneMaterialList.Count;
+                        Geometry.MaterialID = GeometryMaterialID;
                         Geometry.Indice0 = MeshIndices[SubmeshDescriptor.indexStart + SubmeshIndiceID + 0] + SceneVertexList.Count;
                         Geometry.Indice1 = MeshIndices[SubmeshDescriptor.indexStart + SubmeshIndiceID + 1] + SceneVertexList.Count;
                         Geometry.Indice2 = MeshIndices[SubmeshDescriptor.indexStart + SubmeshIndiceID + 2] + SceneVertexList.Count;
                         SceneGeometryList.Add(Geometry);
-                    }
-
-                    Material UnityMaterial = SceneObject.Renderer.sharedMaterials[SubmeshID];
-                    if (UnityMaterial != null)
-                    {
-                        string MeshMaterialNameLower = UnityMaterial.name.ToLower();
-                        string MeshMaterialShaderNameLower = UnityMaterial.shader.name.ToLower();
-                        int MeshMaterialProgramID = System.Array.FindIndex(DynamicMaterialPrograms, ProgramData =>
-                        {
-                            string ProgramNameLower = ProgramData.Name.ToLower();
-                            return MeshMaterialNameLower.Contains(ProgramNameLower) || MeshMaterialShaderNameLower.Contains(ProgramNameLower);
-                        });
-
-                        RSMaterialData MeshMaterial = RSMaterialData.CreateFromUnityMaterial(UnityMaterial);
-                        MeshMaterial.ProgramID = MeshMaterialProgramID;
-                        SceneMaterialList.Add(MeshMaterial);
-                    }
-                    else
-                    {
-                        SceneMaterialList.Add(RSMaterialData.Default);
                     }
 
                     Vector3[] MeshVertices = SceneObject.Mesh.vertices;
@@ -364,8 +348,13 @@ namespace RayStorm
             SceneOctreeBuffer = RSDataUtility.CreateComputeBufferFromData(SceneOctrees, RSOctreeData.GetDataSize());
             SceneOctreeGeometryIDBuffer = RSDataUtility.CreateComputeBufferFromData(SceneOctreeGeometryIDs, sizeof(int));
 
+            if (SceneEmissionIDList.Count > 0)
+                SceneEmissionIDBuffer = RSDataUtility.CreateComputeBufferFromData(SceneEmissionIDList.ToArray(), sizeof(int));
+            else
+                SceneEmissionIDBuffer = null;
+
             if (SkyboxTexture == null)
-                SkyboxTexture = RSDataUtility.CreateSolidCubemap(32, TextureFormat.ARGB32, false, Color.white);
+                SkyboxTexture = RSDataUtility.CreateSolidCubemap(32, TextureFormat.ARGB32, false, Color.black);
         }
 
         private void ResetFrameRasterizer()

@@ -26,18 +26,8 @@ struct RSGeometryData
 	int indice2;
 };
 
-struct RSLightData
-{
-	int programID;
-	float3 popsition;
-	float3 direction;
-	float3 color;
-	float4 data;
-};
-
 struct RSMaterialData
 {
-	int programID;
 	float3 albedo;
 	float3 emission;
 	float  metallic;
