@@ -12,7 +12,7 @@ RWTexture2D<float4> RaytraceOutputTexture;
 [numthreads(128, 1, 1)]
 void CSKernelMain(uint3 id : SV_DispatchThreadID)
 {
-	if (id.x >= RaytraceWindowSizeX * RaytraceWindowSizeY || SubpixelCountPerPixel == 0)
+	if (id.x >= RaytraceWindowSizeX * RaytraceWindowSizeY)
 		return;
 
 	uint2 TexturePixelID = uint2(RaytraceWindowPosX, RaytraceWindowPosY)
@@ -27,7 +27,7 @@ void CSKernelMain(uint3 id : SV_DispatchThreadID)
 	for (uint SampleID = 0; SampleID < SubpixelCountPerPixel; ++SampleID)
 		SampleSum += RaytraceWindowBuffer[SubpixelStartID + SampleID].data.rgb;
 
-	// ARGBFloat stores the linear mean in RGB and the actual sample count in A.
+	// RGB: linear mean. A: sample count.
 	float4 Previous = RaytraceOutputTexture[TexturePixelID];
 	float SampleCount = Previous.a + SubpixelCountPerPixel;
 	float3 Mean = (Previous.rgb * Previous.a + SampleSum) / SampleCount;

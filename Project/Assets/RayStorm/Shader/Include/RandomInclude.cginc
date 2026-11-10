@@ -7,7 +7,6 @@
 // Variables | Random function variavbles
 ////////////////////////////////////////////////////////////////////////////////
 
-// Each ray owns its generator state; no shader uniform is modified.
 uint InitializeRandomState(uint RayIndex, uint DispatchSeed)
 {
 	uint State = RayIndex ^ DispatchSeed ^ 0x9e3779b9u;
@@ -108,7 +107,7 @@ float3 CosineSampleHemisphere(inout uint State)
 	float SinPhi, CosPhi;
 	sincos(Phi, SinPhi, CosPhi);
 	return float3(sqrt(RadiusSquared) * CosPhi, sqrt(RadiusSquared) * SinPhi,
-		sqrt(max(0.0f, 1.0f - RadiusSquared)));
+		sqrt(1.0f - RadiusSquared));
 }
 
 float3 ImportanceSampleGGX(inout uint Seed, float Roughness)

@@ -13,7 +13,7 @@ namespace RayStorm
 
             serializedObject.Update();
             if (!EditorApplication.isPlaying)
-                OnInspectorGUIInEditor(RendererComponent);
+                OnInspectorGUIInEditor();
             else
                 OnInspectorGUIInPlaying(RendererComponent);
             serializedObject.ApplyModifiedProperties();
@@ -22,7 +22,7 @@ namespace RayStorm
                 RendererComponent.RayStormBehaviour.OnInspectorGUI();
         }
 
-        private void OnInspectorGUIInEditor(RayStormRenderer RendererComponent)
+        private void OnInspectorGUIInEditor()
         {
             DrawPropertiesExcluding(serializedObject, "m_Script", "RayStormBehaviour", "SkyboxTexture");
             SerializedProperty SkyboxProperty = serializedObject.FindProperty("SkyboxTexture");
@@ -54,8 +54,6 @@ namespace RayStorm
                 serializedObject.ApplyModifiedProperties();
                 EditorUtility.SetDirty(CurrentBehaviour);
                 Undo.CollapseUndoOperations(UndoGroup);
-
-                // Replaced behaviours can be shared assets or referenced by Undo; do not destroy them here.
             }
 
             if (CurrentBehaviour != null)

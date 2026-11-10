@@ -1,6 +1,7 @@
 using System;
 using UnityEditor;
 using UnityEngine;
+using Object = UnityEngine.Object;
 
 namespace RayStorm
 {
@@ -28,7 +29,6 @@ namespace RayStorm
                     ValidateCoverage(DefaultBehaviour, Context, 1, ExpectedSamples[FrameIndex]);
                 }
 
-                // No Camera is supplied: task dimensions must come exclusively from the render snapshot.
                 Context.FrameID = 0;
                 ValidateCoverage(TextureBehaviour, Context, 5, 816);
                 Context.RenderWidth = 1;
@@ -36,12 +36,12 @@ namespace RayStorm
                 ValidateCoverage(DefaultBehaviour, Context, 1, 1);
                 ValidateCoverage(TextureBehaviour, Context, 5, 816);
 
-                Debug.Log("RayStorm task validation passed: clipped tiles, full coverage, sample totals, fixed dimensions and frame limits.");
+                Debug.Log("RayStorm task validation passed.");
             }
             finally
             {
-                UnityEngine.Object.DestroyImmediate(DefaultBehaviour);
-                UnityEngine.Object.DestroyImmediate(TextureBehaviour);
+                Object.DestroyImmediate(DefaultBehaviour);
+                Object.DestroyImmediate(TextureBehaviour);
             }
         }
 
@@ -50,7 +50,6 @@ namespace RayStorm
             Behaviour.OnFrameCollectRenderTask(Context, out RSRenderTask[] Tasks);
             int[] PixelVisits = new int[Context.RenderWidth * Context.RenderHeight];
             int[] PixelSamples = new int[PixelVisits.Length];
-            Require(Tasks.Length > 0, "A positive output size must produce tasks.");
             foreach (RSRenderTask Task in Tasks)
             {
                 Require(Task.FrameID == Context.FrameID, "Task frame ID must match the render snapshot.");

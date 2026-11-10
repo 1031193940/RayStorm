@@ -1,11 +1,11 @@
 ﻿using System.Reflection;
-using System.Collections;
+using System.IO;
 using System.Collections.Generic;
 using UnityEngine;
 
 #if UNITY_EDITOR
-    using UnityEditor;
-#endif // UNITY_EDIOTR
+using UnityEditor;
+#endif
 
 namespace RayStorm
 {
@@ -38,62 +38,45 @@ namespace RayStorm
 
         public static T LoadAsset<T>(string AssetName) where T : Object
         {
-            T AssetInstance = null;
-            GetAssetPath<T>(AssetName, out AssetInstance);
+            GetAssetPath<T>(AssetName, out T AssetInstance);
             return AssetInstance;
         }
 
         public static string GetAssetPath<T>(string AssetName) where T : Object
         {
-            T AssetInstance = null;
-            return GetAssetPath<T>(AssetName, out AssetInstance);
+            return GetAssetPath<T>(AssetName, out _);
         }
 
         public static string GetAssetPath<T>(string AssetName, out T LoadedAssetInstance) where T : Object
         {
             LoadedAssetInstance = null;
 
-            string FoundAssetFilePath = null;
-
             #if UNITY_EDITOR
+            foreach (string GUID in AssetDatabase.FindAssets(AssetName))
             {
-                var AssetGUIDList = AssetDatabase.FindAssets(AssetName);
-                if (AssetGUIDList != null && AssetGUIDList.Length > 0)
-                {
-                    foreach (var GUID in AssetGUIDList)
-                    {
-                        var AssetFilePath = AssetDatabase.GUIDToAssetPath(GUID);
-                        var AssetInstance = AssetDatabase.LoadAssetAtPath<T>(AssetFilePath);
-                        if (AssetInstance != null)
-                        {
-                            FoundAssetFilePath = AssetFilePath;
-                            LoadedAssetInstance = AssetInstance;
-                            break;
-                        }
-                    }
-                }
+                string AssetFilePath = AssetDatabase.GUIDToAssetPath(GUID);
+                LoadedAssetInstance = AssetDatabase.LoadAssetAtPath<T>(AssetFilePath);
+                if (LoadedAssetInstance != null)
+                    return AssetFilePath;
             }
             #endif // UNITY_EDITOR
 
-            return FoundAssetFilePath;
+            return null;
         }
 
         public static string GetOutputPath(string FileName)
         {
 #if UNITY_EDITOR
-            return System.IO.Path.Combine(Application.dataPath, FileName);
+            return Path.Combine(Application.dataPath, FileName);
 #else
-            return System.IO.Path.Combine(Application.persistentDataPath, FileName);
+            return Path.Combine(Application.persistentDataPath, FileName);
 #endif
         }
 
         public static void SaveTexture2D(Texture2D SourceTexture2D, string FilePath)
         {
-            if (SourceTexture2D == null)
-                throw new System.ArgumentNullException(nameof(SourceTexture2D));
-
             byte[] EncodedBytes;
-            var Extension = System.IO.Path.GetExtension(FilePath).ToLowerInvariant();
+            var Extension = Path.GetExtension(FilePath).ToLowerInvariant();
             if (Extension == ".png")
                 EncodedBytes = SourceTexture2D.EncodeToPNG();
             else if (Extension == ".tga")
@@ -103,12 +86,12 @@ namespace RayStorm
             else
                 EncodedBytes = SourceTexture2D.EncodeToJPG();
 
-            string AbsoluteFilePath = System.IO.Path.GetFullPath(FilePath);
-            System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(AbsoluteFilePath));
-            System.IO.File.WriteAllBytes(AbsoluteFilePath, EncodedBytes);
+            string AbsoluteFilePath = Path.GetFullPath(FilePath);
+            Directory.CreateDirectory(Path.GetDirectoryName(AbsoluteFilePath));
+            File.WriteAllBytes(AbsoluteFilePath, EncodedBytes);
 
 #if UNITY_EDITOR
-            string AssetDirectory = System.IO.Path.GetFullPath(Application.dataPath) + System.IO.Path.DirectorySeparatorChar;
+            string AssetDirectory = Path.GetFullPath(Application.dataPath) + Path.DirectorySeparatorChar;
             if (AbsoluteFilePath.StartsWith(AssetDirectory, System.StringComparison.OrdinalIgnoreCase))
             {
                 string RelativeAssetPath = "Assets/" + AbsoluteFilePath.Substring(AssetDirectory.Length).Replace('\\', '/');

@@ -22,10 +22,9 @@ float3 LinearToSRGB(float3 Color)
 [numthreads(8, 8, 1)]
 void CSKernelMain(uint3 id : SV_DispatchThreadID)
 {
-	uint SourceWidth, SourceHeight, TargetWidth, TargetHeight;
-	Source.GetDimensions(SourceWidth, SourceHeight);
+	uint TargetWidth, TargetHeight;
 	Target.GetDimensions(TargetWidth, TargetHeight);
-	if (id.x >= min(SourceWidth, TargetWidth) || id.y >= min(SourceHeight, TargetHeight))
+	if (id.x >= TargetWidth || id.y >= TargetHeight)
 		return;
 
 	float3 Radiance = max(Source[id.xy].rgb, 0.0f);

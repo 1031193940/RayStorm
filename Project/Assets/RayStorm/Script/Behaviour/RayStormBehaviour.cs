@@ -1,7 +1,5 @@
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.Rendering;
 
 namespace RayStorm
 {
@@ -15,27 +13,22 @@ namespace RayStorm
 
         public virtual void OnLoad(RSRenderContext Context)
         {
-            // !!!TODO : Override in child class
         }
 
         public virtual void OnStartup(RSRenderContext Context)
         {
-            // !!!TODO : Override in child class
         }
 
         public virtual void OnFinished(RSRenderContext Context)
         {
-            // !!!TODO : Override in child class
         }
 
         public virtual void OnUnload(RSRenderContext Context)
         {
-            // !!!TODO : Override in child class
         }
 
         public virtual void OnFrameStartup(RSRenderContext Context)
         {
-            // !!!TODO : Override in child class
         }
 
         public virtual void OnFrameCollectSceneObject(RSRenderContext Context, out RSSceneObject[] OutputSceneObject)
@@ -45,11 +38,6 @@ namespace RayStorm
 
         public virtual void OnFrameCollectRenderTask(RSRenderContext Context, out RSRenderTask[] OutputRenderTask)
         {
-            int TextureWidth = Context.RenderWidth;
-            int TextureHeight = Context.RenderHeight;
-            if (TextureWidth <= 0 || TextureHeight <= 0)
-                throw new System.InvalidOperationException("The render dimensions must be positive before collecting tasks.");
-
             int RenderWindowSize;
             int SubpixelCountPerPixel;
             switch (Context.FrameID)
@@ -69,49 +57,48 @@ namespace RayStorm
             }
 
             List<RSRenderTask> RenderTaskList = new List<RSRenderTask>();
-            int RenderWindowCountRow = Mathf.CeilToInt(TextureHeight / (float)RenderWindowSize);
-            int RenderWindowCountCol = Mathf.CeilToInt(TextureWidth / (float)RenderWindowSize);
-            for (int RowID = 0; RowID < RenderWindowCountRow; ++RowID)
-            {
-                for (int ColID = 0; ColID < RenderWindowCountCol; ++ColID)
-                {
-                    RSRenderTask NewRenderTask = RSRenderTask.Default;
-                    NewRenderTask.FrameID = Context.FrameID;
-                    NewRenderTask.WindowPos = new Vector2Int(ColID, RowID) * RenderWindowSize;
-                    NewRenderTask.WindowSize = new Vector2Int(
-                        Mathf.Min(RenderWindowSize, TextureWidth - NewRenderTask.WindowPos.x),
-                        Mathf.Min(RenderWindowSize, TextureHeight - NewRenderTask.WindowPos.y));
-                    NewRenderTask.SubpixelCountPerPixel = SubpixelCountPerPixel;
-                    RenderTaskList.Add(NewRenderTask);
-                }
-            }
-
+            AddRenderTasks(Context, RenderTaskList, RenderWindowSize, SubpixelCountPerPixel);
             OutputRenderTask = RenderTaskList.ToArray();
         }
 
         public virtual void OnFrameUpdate(RSRenderContext Context)
         {
-            // !!!TODO : Override in child class
         }
 
         public virtual void OnFramePostProcess(RSRenderContext Context)
         {
-            // !!!TODO : Override in child class
         }
 
         public virtual void OnFrameFinished(RSRenderContext Context)
         {
-            // !!!TODO : Override in child class
         }
 
         public virtual void OnInspectorGUI()
         {
-            // !!!TODO : Override in child class
         }
 
         public virtual void OnDrawGizmos()
         {
-            // !!!TODO : Override in child class
+        }
+
+        protected static void AddRenderTasks(RSRenderContext Context, List<RSRenderTask> RenderTaskList,
+            int RenderWindowSize, int SubpixelCountPerPixel)
+        {
+            for (int WindowY = 0; WindowY < Context.RenderHeight; WindowY += RenderWindowSize)
+            {
+                for (int WindowX = 0; WindowX < Context.RenderWidth; WindowX += RenderWindowSize)
+                {
+                    RenderTaskList.Add(new RSRenderTask
+                    {
+                        FrameID = Context.FrameID,
+                        WindowPos = new Vector2Int(WindowX, WindowY),
+                        WindowSize = new Vector2Int(
+                            Mathf.Min(RenderWindowSize, Context.RenderWidth - WindowX),
+                            Mathf.Min(RenderWindowSize, Context.RenderHeight - WindowY)),
+                        SubpixelCountPerPixel = SubpixelCountPerPixel
+                    });
+                }
+            }
         }
     }
 }

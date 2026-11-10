@@ -54,9 +54,9 @@ namespace RayStorm
 						  AABBSize.y * Mathf.Abs(Vector3.Dot(Axis, n1)) * 0.5f +
 						  AABBSize.z * Mathf.Abs(Vector3.Dot(Axis, n2)) * 0.5f;
 
-				float projectionMagnitude = Mathf.Max(1.0f, Mathf.Max(r, Mathf.Max(Mathf.Abs(p0), Mathf.Max(Mathf.Abs(p1), Mathf.Abs(p2)))));
-				float projectionTolerance = projectionMagnitude * (8.0f * 1.192092896e-7f);
-				if (Mathf.Max(-Mathf.Max(Mathf.Max(p0, p1), p2), Mathf.Min(Mathf.Min(p0, p1), p2)) > r + projectionTolerance)
+				float ProjectionMagnitude = Mathf.Max(1.0f, Mathf.Max(r, Mathf.Max(Mathf.Abs(p0), Mathf.Max(Mathf.Abs(p1), Mathf.Abs(p2)))));
+				float ProjectionTolerance = ProjectionMagnitude * (8.0f * 1.192092896e-7f);
+				if (Mathf.Max(-Mathf.Max(Mathf.Max(p0, p1), p2), Mathf.Min(Mathf.Min(p0, p1), p2)) > r + ProjectionTolerance)
 					return false;
 			}
 
@@ -70,23 +70,23 @@ namespace RayStorm
 
 			DistanceToIntersectPos = 0.0f;
 			DistanceInsideBox = 0.0f;
-			float exitDistance = float.MaxValue;
-			for (int axis = 0; axis < 3; ++axis)
+			float ExitDistance = float.MaxValue;
+			for (int AxisID = 0; AxisID < 3; ++AxisID)
 			{
-				if (Mathf.Abs(RayDirection[axis]) < 1.0e-20f)
+				if (Mathf.Abs(RayDirection[AxisID]) < 1.0e-20f)
 				{
-					if (RaySource[axis] < BoundBoxMin[axis] || RaySource[axis] > BoundBoxMax[axis])
+					if (RaySource[AxisID] < BoundBoxMin[AxisID] || RaySource[AxisID] > BoundBoxMax[AxisID])
 						return false;
 					continue;
 				}
-				float firstDistance = (BoundBoxMin[axis] - RaySource[axis]) / RayDirection[axis];
-				float secondDistance = (BoundBoxMax[axis] - RaySource[axis]) / RayDirection[axis];
-				DistanceToIntersectPos = Mathf.Max(DistanceToIntersectPos, Mathf.Min(firstDistance, secondDistance));
-				exitDistance = Mathf.Min(exitDistance, Mathf.Max(firstDistance, secondDistance));
-				if (exitDistance < DistanceToIntersectPos)
+				float FirstDistance = (BoundBoxMin[AxisID] - RaySource[AxisID]) / RayDirection[AxisID];
+				float SecondDistance = (BoundBoxMax[AxisID] - RaySource[AxisID]) / RayDirection[AxisID];
+				DistanceToIntersectPos = Mathf.Max(DistanceToIntersectPos, Mathf.Min(FirstDistance, SecondDistance));
+				ExitDistance = Mathf.Min(ExitDistance, Mathf.Max(FirstDistance, SecondDistance));
+				if (ExitDistance < DistanceToIntersectPos)
 					return false;
 			}
-			DistanceInsideBox = exitDistance - DistanceToIntersectPos;
+			DistanceInsideBox = ExitDistance - DistanceToIntersectPos;
 			return true;
 		}
 

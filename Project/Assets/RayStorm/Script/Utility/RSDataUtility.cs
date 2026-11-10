@@ -1,7 +1,4 @@
-﻿using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.Rendering;
 
 namespace RayStorm
 {
@@ -46,9 +43,6 @@ namespace RayStorm
 
 		public static Texture2D RenderTextureToTexture2D(RenderTexture SourceRenderTexture, TextureFormat Format, bool Mipmap = false)
 		{
-			if (SourceRenderTexture == null)
-				throw new System.ArgumentNullException(nameof(SourceRenderTexture));
-
 			bool IsHDR = Format == TextureFormat.RGBAHalf || Format == TextureFormat.RGBAFloat;
 			Texture2D ReadbackTexture = new Texture2D(SourceRenderTexture.width, SourceRenderTexture.height,
 				IsHDR ? Format : TextureFormat.RGBAFloat, Mipmap, true);
@@ -66,7 +60,7 @@ namespace RayStorm
 					return OutputTexture;
 				}
 
-				// Match the display pass: exposure 1, Reinhard, then encode LDR files as sRGB.
+				// Match the display pass: Reinhard and sRGB encoding.
 				Color[] Pixels = ReadbackTexture.GetPixels();
 				for (int PixelIndex = 0; PixelIndex < Pixels.Length; ++PixelIndex)
 				{
@@ -98,8 +92,6 @@ namespace RayStorm
 
 		private static void DestroyTemporaryTexture(Texture2D Texture)
 		{
-			if (Texture == null)
-				return;
 			if (Application.isPlaying)
 				Object.Destroy(Texture);
 			else
@@ -158,8 +150,7 @@ namespace RayStorm
 
 		public static void ReleaseBuffer(ref ComputeBuffer Buffer)
 		{
-			if (Buffer != null)
-				Buffer.Release();
+			ReleaseBuffer(Buffer);
 			Buffer = null;
 		}
 

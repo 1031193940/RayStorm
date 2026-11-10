@@ -64,7 +64,6 @@ namespace RayStorm
             NewMaterialData.Metallic = Metallic;
             NewMaterialData.Roughness = Roughness;
             NewMaterialData.Transparency = Transparency;
-            NewMaterialData.IndexOfRefraction = 1.4f;
 
             return NewMaterialData;
         }

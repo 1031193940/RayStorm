@@ -54,27 +54,14 @@ namespace RayStorm
         private float LastDisplayTime = float.NegativeInfinity;
         private readonly System.Diagnostics.Stopwatch SubmissionTimer = new System.Diagnostics.Stopwatch();
 
-        private void Reset() { AssignEditorShaders(); }
-
-        private void OnValidate()
+        private void Reset()
         {
-            MaxTasksPerUpdate = Mathf.Max(1, MaxTasksPerUpdate);
-            MaximumQueuedRays = Mathf.Max(1, MaximumQueuedRays);
-            SubmissionBudgetMilliseconds = Mathf.Max(0.1f, SubmissionBudgetMilliseconds);
-            DisplayRefreshInterval = Mathf.Max(0, DisplayRefreshInterval);
             AssignEditorShaders();
         }
 
-        private void AssignEditorShaders()
+        private void OnValidate()
         {
-#if UNITY_EDITOR
-            if (RaytraceComputeShader == null)
-                RaytraceComputeShader = RSAssetUtility.LoadAsset<ComputeShader>("RayStormRaytracer");
-            if (AdditiveComputeShader == null)
-                AdditiveComputeShader = RSAssetUtility.LoadAsset<ComputeShader>("RayStormAdditive");
-            if (BlockComputeShader == null)
-                BlockComputeShader = RSAssetUtility.LoadAsset<ComputeShader>("RayStormBlock");
-#endif
+            AssignEditorShaders();
         }
 
         private void Awake()
@@ -115,7 +102,10 @@ namespace RayStorm
                 RayStormBehaviour.OnLoad(Context);
                 RayStormBehaviour.OnStartup(Context);
             }
-            catch (Exception Error) { StopWithError(Error); }
+            catch (Exception Error)
+            {
+                StopWithError(Error);
+            }
         }
 
         private void Update()
@@ -124,13 +114,11 @@ namespace RayStorm
                 return;
             try
             {
-                if (FramePrepared && CameraChanged())
+                if (!FramePrepared || CameraChanged())
                 {
                     Context.RenderTaskQueue.Clear();
-                    FramePrepared = false;
-                }
-                if (!FramePrepared)
                     BeginFrame();
+                }
 
                 RayStormBehaviour.OnFrameUpdate(Context);
                 if (CameraChanged())
@@ -174,7 +162,22 @@ namespace RayStorm
                 else if (LastTask != null && Time.realtimeSinceStartup - LastDisplayTime >= DisplayRefreshInterval)
                     RefreshDisplay(LastTask);
             }
-            catch (Exception Error) { StopWithError(Error); }
+            catch (Exception Error)
+            {
+                StopWithError(Error);
+            }
+        }
+
+        private void AssignEditorShaders()
+        {
+#if UNITY_EDITOR
+            if (RaytraceComputeShader == null)
+                RaytraceComputeShader = RSAssetUtility.LoadAsset<ComputeShader>("RayStormRaytracer");
+            if (AdditiveComputeShader == null)
+                AdditiveComputeShader = RSAssetUtility.LoadAsset<ComputeShader>("RayStormAdditive");
+            if (BlockComputeShader == null)
+                BlockComputeShader = RSAssetUtility.LoadAsset<ComputeShader>("RayStormBlock");
+#endif
         }
 
         private void BeginFrame()
@@ -242,7 +245,10 @@ namespace RayStorm
         {
             RenderTexture Texture = new RenderTexture(Width, Height, 0, RenderTextureFormat.ARGBFloat, RenderTextureReadWrite.Linear)
             {
-                name = TextureName, useMipMap = false, enableRandomWrite = true, filterMode = FilterMode.Point
+                name = TextureName,
+                useMipMap = false,
+                enableRandomWrite = true,
+                filterMode = FilterMode.Point
             };
             if (!Texture.Create())
             {
@@ -257,21 +263,26 @@ namespace RayStorm
             int RayCount = checked(Task.WindowSize.x * Task.WindowSize.y * Task.SubpixelCountPerPixel);
             if (RaySources.Length < RayCount)
                 RaySources = new RSSourceData[RayCount];
-            int RayNumber = 0;
-            for (int PixelY = 0; PixelY < Task.WindowSize.y; PixelY++)
-            for (int PixelX = 0; PixelX < Task.WindowSize.x; PixelX++)
-            for (int Sample = 0; Sample < Task.SubpixelCountPerPixel; Sample++)
+            int RayIndex = 0;
+            for (int PixelY = 0; PixelY < Task.WindowSize.y; ++PixelY)
             {
-                float ScreenX = Task.WindowPos.x + PixelX + UnityEngine.Random.value;
-                float ScreenY = Task.WindowPos.y + PixelY + UnityEngine.Random.value;
-                Vector3 Origin = NearPlaneBottomLeft + NearPlaneHorizontal * (ScreenX / Context.RenderWidth)
-                    + NearPlaneVertical * (ScreenY / Context.RenderHeight);
-                RaySources[RayNumber++] = new RSSourceData
+                for (int PixelX = 0; PixelX < Task.WindowSize.x; ++PixelX)
                 {
-                    ID = new Vector2(ScreenX, ScreenY), Position = Origin,
-                    Direction = FrameOrthographic ? FrameCameraForward : (Origin - FrameCameraPosition).normalized,
-                    Energy = Vector3.one
-                };
+                    for (int SampleIndex = 0; SampleIndex < Task.SubpixelCountPerPixel; ++SampleIndex)
+                    {
+                        float ScreenX = Task.WindowPos.x + PixelX + UnityEngine.Random.value;
+                        float ScreenY = Task.WindowPos.y + PixelY + UnityEngine.Random.value;
+                        Vector3 Origin = NearPlaneBottomLeft + NearPlaneHorizontal * (ScreenX / Context.RenderWidth)
+                            + NearPlaneVertical * (ScreenY / Context.RenderHeight);
+                        RaySources[RayIndex++] = new RSSourceData
+                        {
+                            ID = new Vector2(ScreenX, ScreenY),
+                            Position = Origin,
+                            Direction = FrameOrthographic ? FrameCameraForward : (Origin - FrameCameraPosition).normalized,
+                            Energy = Vector3.one
+                        };
+                    }
+                }
             }
             return RayCount;
         }
@@ -279,9 +290,9 @@ namespace RayStorm
         private static void EnsureBuffer(ref ComputeBuffer Buffer, int Count, int Stride)
         {
             Count = Mathf.Max(1, Count);
-            if (Buffer != null && Buffer.IsValid() && Buffer.count >= Count && Buffer.stride == Stride)
+            if (Buffer != null && Buffer.count >= Count)
                 return;
-            ReleaseBuffer(ref Buffer);
+            RSDataUtility.ReleaseBuffer(ref Buffer);
             Buffer = new ComputeBuffer(Count, Stride);
         }
 
@@ -301,7 +312,7 @@ namespace RayStorm
             EnsureBuffer(ref RaytraceOutputBuffer, RayCount, RSOutputData.GetDataSize());
             RaytraceSourceBuffer.SetData(RaySources, 0, 0, RayCount);
 
-            // Assets are shared: bind every instance-specific resource immediately before dispatch.
+            // ComputeShader assets are shared between renderers.
             RaytraceComputeShader.SetInt("RayCount", RayCount);
             RaytraceComputeShader.SetInt("SceneOctreeCount", SceneOctrees.Length);
             RaytraceComputeShader.SetInt("SceneGeometryCount", SceneGeometryCount);
@@ -339,11 +350,14 @@ namespace RayStorm
         {
             BlockComputeShader.SetInt("ShowRenderBlock", Task == null ? 0 : 1);
             BlockComputeShader.SetInt("OutputIsGamma", QualitySettings.activeColorSpace == ColorSpace.Gamma ? 1 : 0);
-            BlockComputeShader.SetInt("BlockPosX", Task == null ? 0 : Task.WindowPos.x);
-            BlockComputeShader.SetInt("BlockPosY", Task == null ? 0 : Task.WindowPos.y);
-            BlockComputeShader.SetInt("BlockSizeX", Task == null ? 0 : Task.WindowSize.x);
-            BlockComputeShader.SetInt("BlockSizeY", Task == null ? 0 : Task.WindowSize.y);
-            BlockComputeShader.SetVector("BlockColor", new Vector4(0, 1, 1, 0.2f));
+            if (Task != null)
+            {
+                BlockComputeShader.SetInt("BlockPosX", Task.WindowPos.x);
+                BlockComputeShader.SetInt("BlockPosY", Task.WindowPos.y);
+                BlockComputeShader.SetInt("BlockSizeX", Task.WindowSize.x);
+                BlockComputeShader.SetInt("BlockSizeY", Task.WindowSize.y);
+                BlockComputeShader.SetVector("BlockColor", new Vector4(0, 1, 1, 0.2f));
+            }
             BlockComputeShader.SetTexture(BlockKernelID, "Source", Context.RaytraceTexture);
             BlockComputeShader.SetTexture(BlockKernelID, "Target", DisplayTexture);
             BlockComputeShader.Dispatch(BlockKernelID, DivideRoundUp(Context.RenderWidth, BlockThreadCountX),
@@ -370,7 +384,8 @@ namespace RayStorm
                         continue;
                     Mesh Mesh = SceneObject.Mesh;
                     Matrix4x4 LocalToWorld = SceneObject.Renderer.localToWorldMatrix;
-                    if (Mathf.Abs(LocalToWorld.determinant) < 1e-12f)
+                    float Determinant = LocalToWorld.determinant;
+                    if (Mathf.Abs(Determinant) < 1e-12f)
                     {
                         Debug.LogWarning("RayStorm skipped a mesh with a singular transform: " + SceneObject.Renderer.name, SceneObject.Renderer);
                         continue;
@@ -383,7 +398,6 @@ namespace RayStorm
                     Vector2[] UV1 = Mesh.uv2;
                     Material[] UnityMaterials = SceneObject.Renderer.sharedMaterials;
                     int VertexStart = Vertices.Count;
-                    // Append vertices only once; all submeshes share this base.
                     for (int VertexNumber = 0; VertexNumber < Positions.Length; VertexNumber++)
                     {
                         RSVertexData Vertex = RSVertexData.Default;
@@ -394,7 +408,7 @@ namespace RayStorm
                             Vector4 SourceTangent = Tangents[VertexNumber];
                             Vector3 TangentDirection = LocalToWorld.MultiplyVector(SourceTangent).normalized;
                             Vertex.Tangent = new Vector4(TangentDirection.x, TangentDirection.y, TangentDirection.z,
-                                SourceTangent.w * Mathf.Sign(LocalToWorld.determinant));
+                                SourceTangent.w * Mathf.Sign(Determinant));
                         }
                         Vertex.UV0 = UV0.Length == Positions.Length ? UV0[VertexNumber] : Vector2.zero;
                         Vertex.UV1 = UV1.Length == Positions.Length ? UV1[VertexNumber] : Vector2.zero;
@@ -407,7 +421,7 @@ namespace RayStorm
                         int MaterialID = Materials.Count;
                         Materials.Add(RSMaterialData.CreateFromUnityMaterial(Submesh < UnityMaterials.Length ? UnityMaterials[Submesh] : null));
                         int[] TriangleIndices = Mesh.GetTriangles(Submesh);
-                        for (int TriangleStart = 0; TriangleStart + 2 < TriangleIndices.Length; TriangleStart += 3)
+                        for (int TriangleStart = 0; TriangleStart < TriangleIndices.Length; TriangleStart += 3)
                             Geometries.Add(new RSGeometryData
                             {
                                 MaterialID = MaterialID,
@@ -418,7 +432,10 @@ namespace RayStorm
                     }
                 }
             }
-            finally { RSSceneUtility.ReleaseSceneObjects(Objects); }
+            finally
+            {
+                RSSceneUtility.ReleaseSceneObjects(Objects);
+            }
 
             RSVertexData[] VertexData = Vertices.ToArray();
             RSGeometryData[] GeometryData = Geometries.ToArray();
@@ -441,8 +458,14 @@ namespace RayStorm
             if (Context == null || Context.RaytraceTexture == null)
                 return;
             Texture2D Image = RSDataUtility.RenderTextureToTexture2D(Context.RaytraceTexture, TextureFormat.RGBA32);
-            try { RSAssetUtility.SaveTexture2D(Image, RSAssetUtility.GetOutputPath("RaytraceTexture.jpg")); }
-            finally { DestroyOwnedObject(Image); }
+            try
+            {
+                RSAssetUtility.SaveTexture2D(Image, RSAssetUtility.GetOutputPath("RaytraceTexture.jpg"));
+            }
+            finally
+            {
+                DestroyOwnedObject(Image);
+            }
         }
 
         private void OnDrawGizmos()
@@ -459,29 +482,28 @@ namespace RayStorm
 
         private void StopWithError(Exception Error)
         {
-            if (Context != null) Context.IsRunning = false;
+            if (Context != null)
+                Context.IsRunning = false;
             enabled = false;
             Debug.LogException(Error, this);
         }
 
-        private static void ReleaseBuffer(ref ComputeBuffer Buffer)
-        {
-            if (Buffer != null) Buffer.Release();
-            Buffer = null;
-        }
-
         private static void ReleaseTexture(RenderTexture Texture)
         {
-            if (Texture == null) return;
+            if (Texture == null)
+                return;
             Texture.Release();
             DestroyOwnedObject(Texture);
         }
 
-        private static void DestroyOwnedObject(UnityEngine.Object Value)
+        private static void DestroyOwnedObject(UnityEngine.Object Resource)
         {
-            if (Value == null) return;
-            if (Application.isPlaying) Destroy(Value);
-            else DestroyImmediate(Value);
+            if (Resource == null)
+                return;
+            if (Application.isPlaying)
+                Destroy(Resource);
+            else
+                DestroyImmediate(Resource);
         }
 
         private void OnDestroy()
@@ -493,17 +515,18 @@ namespace RayStorm
             }
             finally
             {
-                ReleaseBuffer(ref SceneVertexBuffer);
-                ReleaseBuffer(ref SceneGeometryBuffer);
-                ReleaseBuffer(ref SceneMaterialBuffer);
-                ReleaseBuffer(ref SceneOctreeBuffer);
-                ReleaseBuffer(ref SceneOctreeGeometryIDBuffer);
-                ReleaseBuffer(ref RaytraceSourceBuffer);
-                ReleaseBuffer(ref RaytraceOutputBuffer);
+                RSDataUtility.ReleaseBuffer(ref SceneVertexBuffer);
+                RSDataUtility.ReleaseBuffer(ref SceneGeometryBuffer);
+                RSDataUtility.ReleaseBuffer(ref SceneMaterialBuffer);
+                RSDataUtility.ReleaseBuffer(ref SceneOctreeBuffer);
+                RSDataUtility.ReleaseBuffer(ref SceneOctreeGeometryIDBuffer);
+                RSDataUtility.ReleaseBuffer(ref RaytraceSourceBuffer);
+                RSDataUtility.ReleaseBuffer(ref RaytraceOutputBuffer);
                 ReleaseTexture(Context == null ? null : Context.RaytraceTexture);
                 ReleaseTexture(DisplayTexture);
                 DestroyOwnedObject(OwnedSkybox);
-                if (OwnsBehaviour) DestroyOwnedObject(RayStormBehaviour);
+                if (OwnsBehaviour)
+                    DestroyOwnedObject(RayStormBehaviour);
                 Context = null;
                 DisplayTexture = null;
             }

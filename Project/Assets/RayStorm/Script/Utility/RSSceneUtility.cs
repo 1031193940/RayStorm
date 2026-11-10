@@ -19,7 +19,7 @@ namespace RayStorm
         // Scene Collect Functions |
         ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-        public static RSSceneObject[] CollectSceneObject(Camera camera = null)
+        public static RSSceneObject[] CollectSceneObject(Camera MainCamera = null)
         {
             List<RSSceneObject> CollectedSceneObjectList = new List<RSSceneObject>();
 
@@ -27,84 +27,83 @@ namespace RayStorm
             foreach (Renderer MeshRenderer in CollectedMeshRendererList)
             {
                 if (!MeshRenderer.enabled || MeshRenderer.forceRenderingOff ||
-                    !MeshRenderer.gameObject.activeInHierarchy ||
-                    (camera != null && (camera.cullingMask & (1 << MeshRenderer.gameObject.layer)) == 0))
+                    (MainCamera != null && (MainCamera.cullingMask & (1 << MeshRenderer.gameObject.layer)) == 0))
                     continue;
 
                 RSSceneObject SceneObject = RSSceneObject.Default;
                 SceneObject.Renderer = MeshRenderer;
                 try
                 {
-                    if (MeshRenderer is SkinnedMeshRenderer skinnedRenderer)
+                    if (MeshRenderer is SkinnedMeshRenderer SkinnedRenderer)
                     {
-                        if (skinnedRenderer.sharedMesh == null)
+                        if (SkinnedRenderer.sharedMesh == null)
                             continue;
                         SceneObject.Type = ESceneObjectType.SkeletalMesh;
                         SceneObject.Mesh = new Mesh();
                         SceneObject.OwnsMesh = true;
-                        skinnedRenderer.BakeMesh(SceneObject.Mesh);
+                        SkinnedRenderer.BakeMesh(SceneObject.Mesh);
                     }
-                    else if (MeshRenderer is UnityEngine.MeshRenderer && MeshRenderer.TryGetComponent<MeshFilter>(out var meshFilter))
+                    else if (MeshRenderer is UnityEngine.MeshRenderer && MeshRenderer.TryGetComponent<MeshFilter>(out var MeshFilter))
                     {
                         SceneObject.Type = ESceneObjectType.StaticMesh;
-                        SceneObject.Mesh = meshFilter.sharedMesh;
+                        SceneObject.Mesh = MeshFilter.sharedMesh;
                     }
                     else
                         continue;
 
-                    Mesh sourceMesh = SceneObject.Mesh;
-                    if (sourceMesh == null || sourceMesh.vertexCount == 0)
+                    Mesh SourceMesh = SceneObject.Mesh;
+                    if (SourceMesh == null || SourceMesh.vertexCount == 0)
                     {
                         ReleaseSceneObject(SceneObject);
                         continue;
                     }
-                    if (!sourceMesh.isReadable)
+                    if (!SourceMesh.isReadable)
                         throw new System.InvalidOperationException("Mesh must have Read/Write enabled.");
-                    for (int submeshIndex = 0; submeshIndex < sourceMesh.subMeshCount; ++submeshIndex)
+                    for (int SubmeshID = 0; SubmeshID < SourceMesh.subMeshCount; ++SubmeshID)
                     {
-                        if (sourceMesh.GetTopology(submeshIndex) != MeshTopology.Triangles)
+                        if (SourceMesh.GetTopology(SubmeshID) != MeshTopology.Triangles)
                             throw new System.InvalidOperationException("Only triangle submeshes are supported.");
                     }
 
-                    if (sourceMesh.normals.Length != sourceMesh.vertexCount)
+                    if (SourceMesh.normals.Length != SourceMesh.vertexCount)
                     {
                         if (!SceneObject.OwnsMesh)
                         {
-                            SceneObject.Mesh = Object.Instantiate(sourceMesh);
+                            SceneObject.Mesh = Object.Instantiate(SourceMesh);
                             SceneObject.OwnsMesh = true;
                         }
                         SceneObject.Mesh.RecalculateNormals();
                     }
                     CollectedSceneObjectList.Add(SceneObject);
                 }
-                catch (System.Exception exception)
+                catch (System.Exception Exception)
                 {
                     ReleaseSceneObject(SceneObject);
-                    Debug.LogWarning("RayStorm skipped '" + MeshRenderer.name + "': " + exception.Message, MeshRenderer);
+                    Debug.LogWarning("RayStorm skipped '" + MeshRenderer.name + "': " + Exception.Message, MeshRenderer);
                 }
             }
 
             return CollectedSceneObjectList.ToArray();
         }
 
-        public static void ReleaseSceneObjects(RSSceneObject[] sceneObjects)
+        public static void ReleaseSceneObjects(RSSceneObject[] SceneObjects)
         {
-            if (sceneObjects == null)
+            if (SceneObjects == null)
                 return;
-            foreach (var sceneObject in sceneObjects)
-                ReleaseSceneObject(sceneObject);
+            foreach (var SceneObject in SceneObjects)
+                ReleaseSceneObject(SceneObject);
         }
 
-        private static void ReleaseSceneObject(RSSceneObject sceneObject)
+        private static void ReleaseSceneObject(RSSceneObject SceneObject)
         {
-            if (sceneObject == null || !sceneObject.OwnsMesh || sceneObject.Mesh == null)
+            if (SceneObject == null || !SceneObject.OwnsMesh || SceneObject.Mesh == null)
                 return;
             if (Application.isPlaying)
-                Object.Destroy(sceneObject.Mesh);
+                Object.Destroy(SceneObject.Mesh);
             else
-                Object.DestroyImmediate(sceneObject.Mesh);
-            sceneObject.Mesh = null;
-            sceneObject.OwnsMesh = false;
+                Object.DestroyImmediate(SceneObject.Mesh);
+            SceneObject.Mesh = null;
+            SceneObject.OwnsMesh = false;
         }
 
         public static T[] CollectSceneComponents<T>() where T : Object
@@ -209,8 +208,8 @@ namespace RayStorm
                     continue;
 
                 Vector3 SubtreeUnitSize = OctreeUnit.Size * 0.5f;
-                var assignedGeometryIDs = new HashSet<int>();
-                bool hasReducedChild = false;
+                var AssignedGeometryIDs = new HashSet<int>();
+                bool HasReducedChild = false;
                 foreach (var SubtreeOffsetSign in SubtreeOffsetSignList)
                 {
                     SceneOctreeNode SubtreeUnit = new SceneOctreeNode();
@@ -229,24 +228,23 @@ namespace RayStorm
                         if (RSMathUtility.IsTriangleIntersectWithAABBBox(v0, v1, v2, SubtreeUnit.Center, SubtreeUnit.Size))
                         {
                             SubtreeUnit.GeometryIDList.Add(GeometryID);
-                            assignedGeometryIDs.Add(GeometryID);
+                            AssignedGeometryIDs.Add(GeometryID);
                         }
                     }
 
                     if (SubtreeUnit.GeometryIDList.Count > 0)
                     {
                         OctreeUnit.SubtreeList.Add(SubtreeUnit);
-                        hasReducedChild |= SubtreeUnit.GeometryIDList.Count < OctreeUnit.GeometryIDList.Count;
+                        HasReducedChild |= SubtreeUnit.GeometryIDList.Count < OctreeUnit.GeometryIDList.Count;
                     }
                 }
 
-                // Keep a complete leaf if rounding dropped any triangle, or subdivision
-                // would only duplicate the same geometry into every populated child.
-                if (assignedGeometryIDs.Count == OctreeUnit.GeometryIDList.Count && hasReducedChild)
+                // Keep the parent leaf when subdivision loses geometry or provides no reduction.
+                if (AssignedGeometryIDs.Count == OctreeUnit.GeometryIDList.Count && HasReducedChild)
                 {
                     OctreeUnit.GeometryIDList.Clear();
-                    foreach (var subtree in OctreeUnit.SubtreeList)
-                        SceneActiveOctreeList.Enqueue(subtree);
+                    foreach (var Subtree in OctreeUnit.SubtreeList)
+                        SceneActiveOctreeList.Enqueue(Subtree);
                 }
                 else
                     OctreeUnit.SubtreeList.Clear();
@@ -255,16 +253,15 @@ namespace RayStorm
             return SceneOctreeRoot;
         }
 
-        private static Vector3 ConservativeBoxSize(Vector3 center, Vector3 size)
+        private static Vector3 ConservativeBoxSize(Vector3 Center, Vector3 Size)
         {
-            // Include several float ULPs on both sides. This also prevents thin
-            // boxes at large world coordinates from collapsing after subdivision.
-            const float relativePadding = 8.0f * 1.192092896e-7f;
-            Vector3 padding = new Vector3(
-                Mathf.Max(1.0f, Mathf.Abs(center.x)) * relativePadding,
-                Mathf.Max(1.0f, Mathf.Abs(center.y)) * relativePadding,
-                Mathf.Max(1.0f, Mathf.Abs(center.z)) * relativePadding);
-            return size + padding * 2.0f;
+            // Pad by coordinate scale to preserve thin bounds in float precision.
+            const float RelativePadding = 8.0f * 1.192092896e-7f;
+            Vector3 Padding = new Vector3(
+                Mathf.Max(1.0f, Mathf.Abs(Center.x)) * RelativePadding,
+                Mathf.Max(1.0f, Mathf.Abs(Center.y)) * RelativePadding,
+                Mathf.Max(1.0f, Mathf.Abs(Center.z)) * RelativePadding);
+            return Size + Padding * 2.0f;
         }
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////

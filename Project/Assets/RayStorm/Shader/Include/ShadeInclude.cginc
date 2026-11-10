@@ -11,20 +11,19 @@ StructuredBuffer<RSMaterialData> RSSceneMaterialBuffer;
 TextureCube<float4> RSSkyboxTexture;
 SamplerState sampler_RSSkyboxTexture;
 
-void GetFacingNormals(float3 ViewDirection, RSRayIntersectData Hit,
+void GetFacingNormals(float3 ViewDirection, in RSRayIntersectData RayIntersectData,
 	out float3 GeometricNormal, out float3 ShadingNormal)
 {
-	GeometricNormal = CorrectGeometryNormal(ViewDirection, Hit.geometricNormal);
-	ShadingNormal = dot(Hit.normal, GeometricNormal) < 0.0f ? -Hit.normal : Hit.normal;
-	// A smoothed normal must still face the incident ray.
+	GeometricNormal = CorrectGeometryNormal(ViewDirection, RayIntersectData.geometricNormal);
+	ShadingNormal = dot(RayIntersectData.normal, GeometricNormal) < 0.0f ? -RayIntersectData.normal : RayIntersectData.normal;
 	if (dot(ShadingNormal, ViewDirection) <= 0.0f)
 		ShadingNormal = GeometricNormal;
 }
 
-void ContinueRay(inout RSRayData Ray, RSRayIntersectData Hit, float3 Direction)
+void ContinueRay(inout RSRayData Ray, in RSRayIntersectData RayIntersectData, float3 Direction)
 {
 	Ray.direction = normalize(Direction);
-	Ray.position = OffsetRayOrigin(Hit.position, Hit.geometricNormal, Ray.direction);
+	Ray.position = OffsetRayOrigin(RayIntersectData.position, RayIntersectData.geometricNormal, Ray.direction);
 }
 
 bool SampleReflection(inout RSRayData Ray, float3 ViewDirection, float3 GeometricNormal,
@@ -40,8 +39,7 @@ bool SampleReflection(inout RSRayData Ray, float3 ViewDirection, float3 Geometri
 	SamplingWeight = 0.0f;
 	float NormalViewCosine = dot(ShadingNormal, ViewDirection);
 	float NormalLightCosine = dot(ShadingNormal, Direction);
-	if (ViewHalfCosine <= 0.0f || NormalViewCosine <= 0.0f
-		|| NormalLightCosine <= 0.0f || dot(GeometricNormal, Direction) <= 0.0f)
+	if (ViewHalfCosine <= 0.0f || NormalLightCosine <= 0.0f || dot(GeometricNormal, Direction) <= 0.0f)
 		return false;
 
 	SamplingWeight = Roughness > 0.001f
@@ -60,59 +58,58 @@ bool SampleDiffuse(inout RSRayData Ray, float3 GeometricNormal, float3 ShadingNo
 	return dot(GeometricNormal, Direction) > 0.0f;
 }
 
-float3 RayHitMetalSurface(inout RSRayData Ray, RSRayIntersectData Hit, RSMaterialData Material)
+float3 RayHitMetalSurface(inout RSRayData Ray, in RSRayIntersectData RayIntersectData, in RSMaterialData MaterialData)
 {
 	float3 ViewDirection = -Ray.direction;
 	float3 GeometricNormal, ShadingNormal;
-	GetFacingNormals(ViewDirection, Hit, GeometricNormal, ShadingNormal);
+	GetFacingNormals(ViewDirection, RayIntersectData, GeometricNormal, ShadingNormal);
 	float3 Direction;
 	float ViewHalfCosine, SamplingWeight;
 	if (!SampleReflection(Ray, ViewDirection, GeometricNormal, ShadingNormal,
-		Material.roughness, Direction, ViewHalfCosine, SamplingWeight))
+		MaterialData.roughness, Direction, ViewHalfCosine, SamplingWeight))
 	{
 		Ray.energy = 0.0f;
-		return Material.emission;
+		return MaterialData.emission;
 	}
 
-	Ray.energy *= BRDF_F_Schlick(Material.albedo, ViewHalfCosine) * SamplingWeight;
-	ContinueRay(Ray, Hit, Direction);
-	return Material.emission;
+	Ray.energy *= BRDF_F_Schlick(MaterialData.albedo, ViewHalfCosine) * SamplingWeight;
+	ContinueRay(Ray, RayIntersectData, Direction);
+	return MaterialData.emission;
 }
 
-float3 RayHitDiffuseSurface(inout RSRayData Ray, RSRayIntersectData Hit, RSMaterialData Material)
+float3 RayHitDiffuseSurface(inout RSRayData Ray, in RSRayIntersectData RayIntersectData, in RSMaterialData MaterialData)
 {
 	float3 GeometricNormal, ShadingNormal;
-	GetFacingNormals(-Ray.direction, Hit, GeometricNormal, ShadingNormal);
+	GetFacingNormals(-Ray.direction, RayIntersectData, GeometricNormal, ShadingNormal);
 	float3 Direction;
 	if (!SampleDiffuse(Ray, GeometricNormal, ShadingNormal, Direction))
 	{
 		Ray.energy = 0.0f;
-		return Material.emission;
+		return MaterialData.emission;
 	}
 
-	// Lambert f=albedo/pi and cosine PDF=cos(theta)/pi cancel.
-	Ray.energy *= Material.albedo;
-	ContinueRay(Ray, Hit, Direction);
-	return Material.emission;
+	Ray.energy *= MaterialData.albedo;
+	ContinueRay(Ray, RayIntersectData, Direction);
+	return MaterialData.emission;
 }
 
-float3 RayHitOpaqueDielectricSurface(inout RSRayData Ray, RSRayIntersectData Hit, RSMaterialData Material)
+float3 RayHitOpaqueDielectricSurface(inout RSRayData Ray, in RSRayIntersectData RayIntersectData, in RSMaterialData MaterialData)
 {
 	float3 ViewDirection = -Ray.direction;
 	float3 GeometricNormal, ShadingNormal;
-	GetFacingNormals(ViewDirection, Hit, GeometricNormal, ShadingNormal);
-	float ReflectionProbability = FresnelDielectricIOR(dot(ShadingNormal, ViewDirection), Material.IOR);
+	GetFacingNormals(ViewDirection, RayIntersectData, GeometricNormal, ShadingNormal);
+	float ReflectionProbability = FresnelDielectricIOR(dot(ShadingNormal, ViewDirection), MaterialData.IOR);
 	float3 Direction;
 	if (Random01(Ray.randomState) < ReflectionProbability)
 	{
 		float ViewHalfCosine, SamplingWeight;
 		if (!SampleReflection(Ray, ViewDirection, GeometricNormal, ShadingNormal,
-			Material.roughness, Direction, ViewHalfCosine, SamplingWeight))
+			MaterialData.roughness, Direction, ViewHalfCosine, SamplingWeight))
 		{
 			Ray.energy = 0.0f;
-			return Material.emission;
+			return MaterialData.emission;
 		}
-		float Fresnel = FresnelDielectricIOR(ViewHalfCosine, Material.IOR);
+		float Fresnel = FresnelDielectricIOR(ViewHalfCosine, MaterialData.IOR);
 		Ray.energy *= Fresnel * SamplingWeight / ReflectionProbability;
 	}
 	else
@@ -120,34 +117,32 @@ float3 RayHitOpaqueDielectricSurface(inout RSRayData Ray, RSRayIntersectData Hit
 		if (!SampleDiffuse(Ray, GeometricNormal, ShadingNormal, Direction))
 		{
 			Ray.energy = 0.0f;
-			return Material.emission;
+			return MaterialData.emission;
 		}
-		// The diffuse lobe is weighted by (1 - ReflectionProbability), which
-		// cancels its selection probability. This retains the simple coated-diffuse model.
-		Ray.energy *= Material.albedo;
+		Ray.energy *= MaterialData.albedo;
 	}
 
-	ContinueRay(Ray, Hit, Direction);
-	return Material.emission;
+	ContinueRay(Ray, RayIntersectData, Direction);
+	return MaterialData.emission;
 }
 
-float3 RayHitTransparencyDielectricSurface(inout RSRayData Ray, RSRayIntersectData Hit, RSMaterialData Material)
+float3 RayHitTransparencyDielectricSurface(inout RSRayData Ray, in RSRayIntersectData RayIntersectData, in RSMaterialData MaterialData)
 {
 	float3 ViewDirection = -Ray.direction;
-	bool IsEntering = dot(ViewDirection, Hit.geometricNormal) > 0.0f;
-	float IOR = IsEntering ? Material.IOR : rcp(Material.IOR);
+	bool IsEntering = dot(ViewDirection, RayIntersectData.geometricNormal) > 0.0f;
+	float IOR = IsEntering ? MaterialData.IOR : rcp(MaterialData.IOR);
 	float3 Absorption = IsEntering ? 1.0f
-		: exp(-distance(Ray.position, Hit.position) * (1.0f - Material.albedo) * 10.0f);
+		: exp(-distance(Ray.position, RayIntersectData.position) * (1.0f - MaterialData.albedo) * 10.0f);
 	float3 GeometricNormal, ShadingNormal;
-	GetFacingNormals(ViewDirection, Hit, GeometricNormal, ShadingNormal);
+	GetFacingNormals(ViewDirection, RayIntersectData, GeometricNormal, ShadingNormal);
 	float3 HalfVector = ShadingNormal;
-	if (Material.roughness > 0.001f)
-		HalfVector = RoughnessNormal(Ray.randomState, ShadingNormal, Material.roughness);
+	if (MaterialData.roughness > 0.001f)
+		HalfVector = RoughnessNormal(Ray.randomState, ShadingNormal, MaterialData.roughness);
 	float ViewHalfCosine = dot(ViewDirection, HalfVector);
 	if (ViewHalfCosine <= 0.0f)
 	{
 		Ray.energy = 0.0f;
-		return Absorption * Material.emission;
+		return Absorption * MaterialData.emission;
 	}
 
 	float ReflectionProbability = FresnelDielectricIOR(ViewHalfCosine, IOR);
@@ -162,42 +157,41 @@ float3 RayHitTransparencyDielectricSurface(inout RSRayData Ray, RSRayIntersectDa
 	if (!ValidHemisphere)
 	{
 		Ray.energy = 0.0f;
-		return Absorption * Material.emission;
+		return Absorption * MaterialData.emission;
 	}
 
-	float SamplingWeight = Material.roughness > 0.001f
+	float SamplingWeight = MaterialData.roughness > 0.001f
 		? GGXSampleWeight(dot(ShadingNormal, ViewDirection), NormalLightCosine,
-			dot(ShadingNormal, HalfVector), ViewHalfCosine, Material.roughness)
+			dot(ShadingNormal, HalfVector), ViewHalfCosine, MaterialData.roughness)
 		: 1.0f;
-	// Fresnel cancels reflection/transmission selection. Radiance transport
-	// across refraction additionally scales by eta_incident^2 / eta_transmitted^2.
+	// Radiance transport: (eta_i / eta_t)^2.
 	if (!IsReflection)
 		SamplingWeight /= IOR * IOR;
 	Ray.energy *= Absorption * SamplingWeight;
-	ContinueRay(Ray, Hit, Direction);
-	return Absorption * Material.emission;
+	ContinueRay(Ray, RayIntersectData, Direction);
+	return Absorption * MaterialData.emission;
 }
 
-float3 RayHitSkybox(inout RSRayData Ray, RSRayIntersectData Hit)
+float3 RayHitSkybox(inout RSRayData Ray, in RSRayIntersectData RayIntersectData)
 {
 	Ray.energy = 0.0f;
 	return RSSkyboxTexture.SampleLevel(sampler_RSSkyboxTexture, Ray.direction, 0.0f).rgb;
 }
 
-float3 RayHitSurface(inout RSRayData Ray, RSRayIntersectData Hit)
+float3 RayHitSurface(inout RSRayData Ray, in RSRayIntersectData RayIntersectData)
 {
-	RSMaterialData Material = RSSceneMaterialBuffer[Hit.materialID];
-	Material.albedo = saturate(Material.albedo);
-	Material.roughness = saturate(Material.roughness);
-	Material.IOR = max(Material.IOR, 0.001f);
+	RSMaterialData MaterialData = RSSceneMaterialBuffer[RayIntersectData.materialID];
+	MaterialData.albedo = saturate(MaterialData.albedo);
+	MaterialData.roughness = saturate(MaterialData.roughness);
+	MaterialData.IOR = max(MaterialData.IOR, 0.001f);
 
-	if (Material.metallic > 0.01f)
-		return RayHitMetalSurface(Ray, Hit, Material);
-	if (Material.roughness > 0.99f)
-		return RayHitDiffuseSurface(Ray, Hit, Material);
-	if (Material.transparency > 0.01f)
-		return RayHitTransparencyDielectricSurface(Ray, Hit, Material);
-	return RayHitOpaqueDielectricSurface(Ray, Hit, Material);
+	if (MaterialData.metallic > 0.01f)
+		return RayHitMetalSurface(Ray, RayIntersectData, MaterialData);
+	if (MaterialData.roughness > 0.99f)
+		return RayHitDiffuseSurface(Ray, RayIntersectData, MaterialData);
+	if (MaterialData.transparency > 0.01f)
+		return RayHitTransparencyDielectricSurface(Ray, RayIntersectData, MaterialData);
+	return RayHitOpaqueDielectricSurface(Ray, RayIntersectData, MaterialData);
 }
 
 #endif // SHADE_INCLUDE

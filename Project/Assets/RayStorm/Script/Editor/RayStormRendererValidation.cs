@@ -2,6 +2,7 @@ using System;
 using System.Reflection;
 using UnityEditor;
 using UnityEngine;
+using Object = UnityEngine.Object;
 
 namespace RayStorm
 {
@@ -18,7 +19,7 @@ namespace RayStorm
             ValidateResizeRestart();
             ValidateMeshImport();
             ValidateResourceRelease();
-            Debug.Log("RayStorm renderer validation passed: perspective/orthographic rays, shared shader isolation, resize restart, mesh fallback, vertex reuse and resource release.");
+            Debug.Log("RayStorm renderer validation passed.");
         }
 
         private static void ValidateCameraRays()
@@ -73,8 +74,8 @@ namespace RayStorm
             }
             finally
             {
-                UnityEngine.Object.DestroyImmediate(RedSky);
-                UnityEngine.Object.DestroyImmediate(BlueSky);
+                Object.DestroyImmediate(RedSky);
+                Object.DestroyImmediate(BlueSky);
             }
         }
 
@@ -140,8 +141,8 @@ namespace RayStorm
             }
             finally
             {
-                UnityEngine.Object.DestroyImmediate(MeshObject);
-                UnityEngine.Object.DestroyImmediate(SourceMesh);
+                Object.DestroyImmediate(MeshObject);
+                Object.DestroyImmediate(SourceMesh);
             }
         }
 
@@ -177,15 +178,23 @@ namespace RayStorm
                     Mathf.Abs(Actual.b - Expected.b) < 0.001f && Mathf.Abs(Actual.a - Expected.a) < 0.001f,
                     "Unexpected accumulation pixel: " + Actual + "; expected " + Expected);
             }
-            finally { UnityEngine.Object.DestroyImmediate(Readback); }
+            finally
+            {
+                Object.DestroyImmediate(Readback);
+            }
         }
 
         private static object Invoke(RayStormRenderer Renderer, string MethodName, params object[] Arguments)
         {
             MethodInfo Method = typeof(RayStormRenderer).GetMethod(MethodName, PrivateInstance);
-            Require(Method != null, "Renderer validation method not found: " + MethodName);
-            try { return Method.Invoke(Renderer, Arguments); }
-            catch (TargetInvocationException Error) { throw Error.InnerException ?? Error; }
+            try
+            {
+                return Method.Invoke(Renderer, Arguments);
+            }
+            catch (TargetInvocationException Error)
+            {
+                throw Error.InnerException;
+            }
         }
 
         private static T Get<T>(RayStormRenderer Renderer, string FieldName)
@@ -200,7 +209,8 @@ namespace RayStorm
 
         private static void Require(bool Condition, string Message)
         {
-            if (!Condition) throw new InvalidOperationException(Message);
+            if (!Condition)
+                throw new InvalidOperationException(Message);
         }
 
         private sealed class Fixture : IDisposable
@@ -234,7 +244,11 @@ namespace RayStorm
                     Invoke(Renderer, "Start");
                     Require(Context != null && Context.RaytraceTexture != null && Context.IsRunning, "Renderer initialization failed.");
                 }
-                catch { Dispose(); throw; }
+                catch
+                {
+                    Dispose();
+                    throw;
+                }
             }
 
             public void SetSize(int Width, int Height)
@@ -242,22 +256,22 @@ namespace RayStorm
                 RenderTexture Previous = CameraTarget;
                 CameraTarget = new RenderTexture(Width, Height, 0);
                 Camera.targetTexture = CameraTarget;
-                if (Previous != null) UnityEngine.Object.DestroyImmediate(Previous);
+                Object.DestroyImmediate(Previous);
             }
 
             public void Step()
             {
                 Invoke(Renderer, "Update");
-                Require(Context != null && Context.IsRunning, "Renderer stopped unexpectedly during integration validation.");
+                Require(Context.IsRunning, "Renderer stopped unexpectedly during integration validation.");
             }
 
             public void Dispose()
             {
-                if (Renderer != null) Invoke(Renderer, "OnDestroy");
-                if (Camera != null) Camera.targetTexture = null;
-                UnityEngine.Object.DestroyImmediate(CameraObject);
-                if (CameraTarget != null) UnityEngine.Object.DestroyImmediate(CameraTarget);
-                if (Behaviour != null) UnityEngine.Object.DestroyImmediate(Behaviour);
+                Invoke(Renderer, "OnDestroy");
+                Camera.targetTexture = null;
+                Object.DestroyImmediate(CameraObject);
+                Object.DestroyImmediate(CameraTarget);
+                Object.DestroyImmediate(Behaviour);
             }
         }
     }
@@ -268,18 +282,33 @@ namespace RayStorm
         public int FrameStartCount;
         public int FrameFinishCount;
 
-        public override void OnFrameStartup(RSRenderContext Context) { FrameStartCount++; }
-        public override void OnFrameFinished(RSRenderContext Context) { FrameFinishCount++; }
+        public override void OnFrameStartup(RSRenderContext Context)
+        {
+            FrameStartCount++;
+        }
+
+        public override void OnFrameFinished(RSRenderContext Context)
+        {
+            FrameFinishCount++;
+        }
+
         public override void OnFrameCollectSceneObject(RSRenderContext Context, out RSSceneObject[] OutputSceneObject)
         {
             OutputSceneObject = CollectScene ? RSSceneUtility.CollectSceneObject(Context.MainCamera) : Array.Empty<RSSceneObject>();
         }
+
         public override void OnFrameCollectRenderTask(RSRenderContext Context, out RSRenderTask[] OutputRenderTask)
         {
             OutputRenderTask = new RSRenderTask[2];
             for (int Pass = 0; Pass < OutputRenderTask.Length; ++Pass)
-                OutputRenderTask[Pass] = new RSRenderTask { FrameID = Context.FrameID,
-                    WindowSize = new Vector2Int(Context.RenderWidth, Context.RenderHeight), SubpixelCountPerPixel = 1 };
+            {
+                OutputRenderTask[Pass] = new RSRenderTask
+                {
+                    FrameID = Context.FrameID,
+                    WindowSize = new Vector2Int(Context.RenderWidth, Context.RenderHeight),
+                    SubpixelCountPerPixel = 1
+                };
+            }
         }
     }
 }

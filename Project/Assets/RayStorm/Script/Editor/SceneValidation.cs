@@ -20,192 +20,193 @@ namespace RayStorm
 
         private static void ValidateSplitPlaneCoverage()
         {
-            // This exact input used to lose the middle triangle at the first split.
-            foreach (float centerHeight in new[] { 100.0f, 2048.0f, 262144.0f })
+            // Regression: the middle triangle was lost at the first split.
+            foreach (float CenterHeight in new[] { 100.0f, 2048.0f, 262144.0f })
             {
-                var vertices = new List<RSVertexData>();
-                var geometries = new List<RSGeometryData>();
-                for (int triangleIndex = 0; triangleIndex < 3; ++triangleIndex)
+                var SceneVertexList = new List<RSVertexData>();
+                var SceneGeometryList = new List<RSGeometryData>();
+                for (int TriangleID = 0; TriangleID < 3; ++TriangleID)
                 {
-                    float height = centerHeight + triangleIndex - 1;
-                    AddTriangle(vertices, geometries, new Vector3(-1, height, -1),
-                        new Vector3(1, height, -1), new Vector3(0, height, 1));
+                    float Height = CenterHeight + TriangleID - 1;
+                    AddTriangle(SceneVertexList, SceneGeometryList, new Vector3(-1, Height, -1),
+                        new Vector3(1, Height, -1), new Vector3(0, Height, 1));
                 }
-                RSSceneUtility.BuildSceneOctree(vertices.ToArray(), geometries.ToArray(), 7,
-                    out var nodes, out var geometryIDs);
-                var representedGeometries = new HashSet<int>(geometryIDs);
-                Require(representedGeometries.Count == 3, "Octree dropped a triangle on a split plane.");
-                foreach (var node in nodes)
+                RSVertexData[] SceneVertices = SceneVertexList.ToArray();
+                RSGeometryData[] SceneGeometries = SceneGeometryList.ToArray();
+                RSSceneUtility.BuildSceneOctree(SceneVertices, SceneGeometries, 7,
+                    out var OctreeNodes, out var OctreeGeometryIDs);
+                var RepresentedGeometries = new HashSet<int>(OctreeGeometryIDs);
+                Require(RepresentedGeometries.Count == 3, "Octree dropped a triangle on a split plane.");
+                foreach (var OctreeNode in OctreeNodes)
                 {
-                    Vector3 minimum = node.Center - node.Size * 0.5f;
-                    Vector3 maximum = node.Center + node.Size * 0.5f;
-                    Require(minimum.x < maximum.x && minimum.y < maximum.y && minimum.z < maximum.z,
+                    Vector3 Minimum = OctreeNode.Center - OctreeNode.Size * 0.5f;
+                    Vector3 Maximum = OctreeNode.Center + OctreeNode.Size * 0.5f;
+                    Require(Minimum.x < Maximum.x && Minimum.y < Maximum.y && Minimum.z < Maximum.z,
                         "Octree bounds collapsed at large world coordinates.");
                 }
-                CompareHit(vertices.ToArray(), geometries.ToArray(), nodes, geometryIDs,
-                    new Vector3(0, centerHeight + 0.5f, 0), Vector3.down);
+                CompareHit(SceneVertices, SceneGeometries, OctreeNodes, OctreeGeometryIDs,
+                    new Vector3(0, CenterHeight + 0.5f, 0), Vector3.down);
             }
         }
 
         private static void ValidateNearestHits()
         {
-            var random = new System.Random(89173);
-            var vertices = new List<RSVertexData>();
-            var geometries = new List<RSGeometryData>();
-            for (int triangleIndex = 0; triangleIndex < 48; ++triangleIndex)
+            var RandomGenerator = new System.Random(89173);
+            var SceneVertexList = new List<RSVertexData>();
+            var SceneGeometryList = new List<RSGeometryData>();
+            for (int TriangleID = 0; TriangleID < 48; ++TriangleID)
             {
-                Vector3 center = RandomVector(random, 5.0f);
-                AddTriangle(vertices, geometries, center + RandomVector(random, 1.0f),
-                    center + RandomVector(random, 1.0f), center + RandomVector(random, 1.0f));
+                Vector3 Center = RandomVector(RandomGenerator, 5.0f);
+                AddTriangle(SceneVertexList, SceneGeometryList, Center + RandomVector(RandomGenerator, 1.0f),
+                    Center + RandomVector(RandomGenerator, 1.0f), Center + RandomVector(RandomGenerator, 1.0f));
             }
-            RSVertexData[] vertexArray = vertices.ToArray();
-            RSGeometryData[] geometryArray = geometries.ToArray();
-            RSSceneUtility.BuildSceneOctree(vertexArray, geometryArray, 7, out var nodes, out var geometryIDs);
-            for (int rayIndex = 0; rayIndex < 512; ++rayIndex)
+            RSVertexData[] SceneVertices = SceneVertexList.ToArray();
+            RSGeometryData[] SceneGeometries = SceneGeometryList.ToArray();
+            RSSceneUtility.BuildSceneOctree(SceneVertices, SceneGeometries, 7, out var OctreeNodes, out var OctreeGeometryIDs);
+            for (int RayID = 0; RayID < 512; ++RayID)
             {
-                Vector3 origin = RandomVector(random, 10.0f);
-                RSGeometryData targetTriangle = geometryArray[rayIndex % geometryArray.Length];
-                Vector3 target = (vertexArray[targetTriangle.Indice0].Position +
-                    vertexArray[targetTriangle.Indice1].Position + vertexArray[targetTriangle.Indice2].Position) / 3.0f;
-                CompareHit(vertexArray, geometryArray, nodes, geometryIDs, origin, (target - origin).normalized);
+                Vector3 RaySource = RandomVector(RandomGenerator, 10.0f);
+                RSGeometryData TargetTriangle = SceneGeometries[RayID % SceneGeometries.Length];
+                Vector3 RayTarget = (SceneVertices[TargetTriangle.Indice0].Position +
+                    SceneVertices[TargetTriangle.Indice1].Position + SceneVertices[TargetTriangle.Indice2].Position) / 3.0f;
+                CompareHit(SceneVertices, SceneGeometries, OctreeNodes, OctreeGeometryIDs, RaySource, (RayTarget - RaySource).normalized);
             }
             RSSceneUtility.BuildSceneOctree(Array.Empty<RSVertexData>(), Array.Empty<RSGeometryData>(),
-                7, out var emptyNodes, out var emptyGeometryIDs);
-            Require(emptyNodes.Length == 1 && emptyNodes[0].GeometryCount == 0 && emptyGeometryIDs.Length == 0,
+                7, out var EmptyNodes, out var EmptyGeometryIDs);
+            Require(EmptyNodes.Length == 1 && EmptyNodes[0].GeometryCount == 0 && EmptyGeometryIDs.Length == 0,
                 "Empty scene should produce one empty root.");
         }
 
         private static void ValidateParallelSlabs()
         {
             Require(RSMathUtility.RayIntersectWithAABBBox(new Vector3(1, 0, -2), Vector3.forward,
-                Vector3.zero, Vector3.one * 2, out float entryDistance, out _), "Boundary-parallel ray missed.");
-            Require(Mathf.Abs(entryDistance - 1) < 0.00001f, "Unexpected slab entry distance.");
+                Vector3.zero, Vector3.one * 2, out float EntryDistance, out _), "Boundary-parallel ray missed.");
+            Require(Mathf.Abs(EntryDistance - 1) < 0.00001f, "Unexpected slab entry distance.");
             Require(!RSMathUtility.RayIntersectWithAABBBox(new Vector3(1.1f, 0, -2), Vector3.forward,
                 Vector3.zero, Vector3.one * 2, out _, out _), "Outside parallel ray should miss.");
         }
 
         private static void ValidateSceneCollection()
         {
-            var testObjects = new List<GameObject>();
-            var sourceMesh = new Mesh
+            var TestObjects = new List<GameObject>();
+            var SourceMesh = new Mesh
             {
                 vertices = new[] { Vector3.zero, Vector3.right, Vector3.forward },
                 triangles = new[] { 0, 1, 2 }
             };
-            RSSceneObject[] collectedObjects = null;
+            RSSceneObject[] CollectedObjects = null;
+            Mesh OwnedSnapshot = null;
             try
             {
-                var cameraObject = NewTestObject(testObjects, "Camera");
-                Camera camera = cameraObject.AddComponent<Camera>();
-                camera.cullingMask = 1 << 31;
-                var visibleObject = NewTestObject(testObjects, "Visible");
-                visibleObject.AddComponent<MeshFilter>().sharedMesh = sourceMesh;
-                MeshRenderer visibleRenderer = visibleObject.AddComponent<MeshRenderer>();
-                var disabledObject = NewTestObject(testObjects, "Disabled");
-                disabledObject.AddComponent<MeshFilter>().sharedMesh = sourceMesh;
-                disabledObject.AddComponent<MeshRenderer>().enabled = false;
-                var maskedObject = NewTestObject(testObjects, "Masked");
-                maskedObject.layer = 30;
-                maskedObject.AddComponent<MeshFilter>().sharedMesh = sourceMesh;
-                maskedObject.AddComponent<MeshRenderer>();
-                NewTestObject(testObjects, "Line").AddComponent<LineRenderer>();
-                NewTestObject(testObjects, "Empty").AddComponent<MeshRenderer>();
+                var CameraObject = NewTestObject(TestObjects, "Camera");
+                Camera MainCamera = CameraObject.AddComponent<Camera>();
+                MainCamera.cullingMask = 1 << 31;
+                var VisibleObject = NewTestObject(TestObjects, "Visible");
+                VisibleObject.AddComponent<MeshFilter>().sharedMesh = SourceMesh;
+                MeshRenderer VisibleRenderer = VisibleObject.AddComponent<MeshRenderer>();
+                var DisabledObject = NewTestObject(TestObjects, "Disabled");
+                DisabledObject.AddComponent<MeshFilter>().sharedMesh = SourceMesh;
+                DisabledObject.AddComponent<MeshRenderer>().enabled = false;
+                var MaskedObject = NewTestObject(TestObjects, "Masked");
+                MaskedObject.layer = 30;
+                MaskedObject.AddComponent<MeshFilter>().sharedMesh = SourceMesh;
+                MaskedObject.AddComponent<MeshRenderer>();
+                NewTestObject(TestObjects, "Line").AddComponent<LineRenderer>();
+                NewTestObject(TestObjects, "Empty").AddComponent<MeshRenderer>();
 
-                collectedObjects = RSSceneUtility.CollectSceneObject(camera);
-                RSSceneObject importedObject = Array.Find(collectedObjects, item => item.Renderer == visibleRenderer);
-                Require(importedObject != null && importedObject.OwnsMesh, "Missing normals require an owned snapshot mesh.");
-                Require(importedObject.Mesh.normals.Length == sourceMesh.vertexCount, "Snapshot normals were not generated.");
-                Require(sourceMesh.normals.Length == 0, "Scene collection mutated the source mesh.");
-                foreach (var item in collectedObjects)
+                CollectedObjects = RSSceneUtility.CollectSceneObject(MainCamera);
+                RSSceneObject ImportedObject = Array.Find(CollectedObjects, SceneObject => SceneObject.Renderer == VisibleRenderer);
+                Require(ImportedObject != null && ImportedObject.OwnsMesh, "Missing normals require an owned snapshot mesh.");
+                Require(ImportedObject.Mesh.normals.Length == SourceMesh.vertexCount, "Snapshot normals were not generated.");
+                Require(SourceMesh.normals.Length == 0, "Scene collection mutated the source mesh.");
+                foreach (var SceneObject in CollectedObjects)
                 {
-                    if (testObjects.Contains(item.Renderer.gameObject))
-                        Require(item.Renderer == visibleRenderer, "Disabled, masked or unsupported renderer was collected.");
+                    if (TestObjects.Contains(SceneObject.Renderer.gameObject))
+                        Require(SceneObject.Renderer == VisibleRenderer, "Disabled, masked or unsupported renderer was collected.");
                 }
-                Mesh ownedSnapshot = importedObject.Mesh;
-                RSSceneUtility.ReleaseSceneObjects(collectedObjects);
-                Require(ownedSnapshot == null, "Owned snapshot mesh was not destroyed in edit mode.");
-                collectedObjects = null;
+                OwnedSnapshot = ImportedObject.Mesh;
             }
             finally
             {
-                RSSceneUtility.ReleaseSceneObjects(collectedObjects);
-                foreach (var testObject in testObjects)
-                    UnityEngine.Object.DestroyImmediate(testObject);
-                UnityEngine.Object.DestroyImmediate(sourceMesh);
+                RSSceneUtility.ReleaseSceneObjects(CollectedObjects);
+                foreach (var TestObject in TestObjects)
+                    UnityEngine.Object.DestroyImmediate(TestObject);
+                UnityEngine.Object.DestroyImmediate(SourceMesh);
             }
+            Require(OwnedSnapshot == null, "Owned snapshot mesh was not destroyed in edit mode.");
         }
 
-        private static GameObject NewTestObject(List<GameObject> objects, string name)
+        private static GameObject NewTestObject(List<GameObject> TestObjects, string Name)
         {
-            var testObject = new GameObject("RayStormValidation_" + name) { layer = 31 };
-            objects.Add(testObject);
-            return testObject;
+            var TestObject = new GameObject("RayStormValidation_" + Name) { layer = 31 };
+            TestObjects.Add(TestObject);
+            return TestObject;
         }
 
-        private static void CompareHit(RSVertexData[] vertices, RSGeometryData[] geometries,
-            RSOctreeData[] nodes, int[] geometryIDs, Vector3 origin, Vector3 direction)
+        private static void CompareHit(RSVertexData[] SceneVertices, RSGeometryData[] SceneGeometries,
+            RSOctreeData[] OctreeNodes, int[] OctreeGeometryIDs, Vector3 RaySource, Vector3 RayDirection)
         {
-            float bruteDistance = float.PositiveInfinity;
-            foreach (var geometry in geometries)
-                TestTriangle(vertices, geometry, origin, direction, ref bruteDistance);
+            float BruteDistance = float.PositiveInfinity;
+            foreach (var Geometry in SceneGeometries)
+                TestTriangle(SceneVertices, Geometry, RaySource, RayDirection, ref BruteDistance);
 
-            float treeDistance = float.PositiveInfinity;
-            var pendingNodes = new Stack<int>();
-            pendingNodes.Push(0);
-            int visitedCount = 0;
-            while (pendingNodes.Count > 0)
+            float TreeDistance = float.PositiveInfinity;
+            var PendingNodes = new Stack<int>();
+            PendingNodes.Push(0);
+            int VisitedCount = 0;
+            while (PendingNodes.Count > 0)
             {
-                Require(++visitedCount <= nodes.Length, "Octree contains a cycle or shared child.");
-                RSOctreeData node = nodes[pendingNodes.Pop()];
-                if (!RSMathUtility.RayIntersectWithAABBBox(origin, direction, node.Center, node.Size,
-                    out float entryDistance, out _) || entryDistance > treeDistance)
+                Require(++VisitedCount <= OctreeNodes.Length, "Octree contains a cycle or shared child.");
+                RSOctreeData OctreeNode = OctreeNodes[PendingNodes.Pop()];
+                if (!RSMathUtility.RayIntersectWithAABBBox(RaySource, RayDirection, OctreeNode.Center, OctreeNode.Size,
+                    out float EntryDistance, out _) || EntryDistance > TreeDistance)
                     continue;
-                for (int geometryOffset = 0; geometryOffset < node.GeometryCount; ++geometryOffset)
-                    TestTriangle(vertices, geometries[geometryIDs[node.GeometryStartID + geometryOffset]],
-                        origin, direction, ref treeDistance);
-                for (int childOffset = 0; childOffset < node.SubtreeCount; ++childOffset)
-                    pendingNodes.Push(node.SubtreeStartID + childOffset);
+                for (int GeometryOffset = 0; GeometryOffset < OctreeNode.GeometryCount; ++GeometryOffset)
+                    TestTriangle(SceneVertices, SceneGeometries[OctreeGeometryIDs[OctreeNode.GeometryStartID + GeometryOffset]],
+                        RaySource, RayDirection, ref TreeDistance);
+                for (int ChildOffset = 0; ChildOffset < OctreeNode.SubtreeCount; ++ChildOffset)
+                    PendingNodes.Push(OctreeNode.SubtreeStartID + ChildOffset);
             }
-            bool bruteMissed = float.IsPositiveInfinity(bruteDistance);
-            bool treeMissed = float.IsPositiveInfinity(treeDistance);
-            Require(bruteMissed == treeMissed && (bruteMissed ||
-                Mathf.Abs(bruteDistance - treeDistance) <= 0.0001f * Mathf.Max(1, bruteDistance)),
+            bool BruteMissed = float.IsPositiveInfinity(BruteDistance);
+            bool TreeMissed = float.IsPositiveInfinity(TreeDistance);
+            Require(BruteMissed == TreeMissed && (BruteMissed ||
+                Mathf.Abs(BruteDistance - TreeDistance) <= 0.0001f * Mathf.Max(1, BruteDistance)),
                 "Octree and brute force disagree on nearest hit.");
         }
 
-        private static void TestTriangle(RSVertexData[] vertices, RSGeometryData geometry,
-            Vector3 origin, Vector3 direction, ref float closestDistance)
+        private static void TestTriangle(RSVertexData[] SceneVertices, RSGeometryData Geometry,
+            Vector3 RaySource, Vector3 RayDirection, ref float ClosestDistance)
         {
-            Vector3 first = vertices[geometry.Indice0].Position;
-            Vector3 second = vertices[geometry.Indice1].Position;
-            Vector3 third = vertices[geometry.Indice2].Position;
-            if (RSMathUtility.RayIntersectWithTriangle(origin, direction, first, second, third, out var weights))
+            Vector3 FirstPosition = SceneVertices[Geometry.Indice0].Position;
+            Vector3 SecondPosition = SceneVertices[Geometry.Indice1].Position;
+            Vector3 ThirdPosition = SceneVertices[Geometry.Indice2].Position;
+            if (RSMathUtility.RayIntersectWithTriangle(RaySource, RayDirection, FirstPosition, SecondPosition, ThirdPosition, out var Weights))
             {
-                Vector3 position = RSMathUtility.TriangularInterpolate(first, second, third, weights);
-                closestDistance = Mathf.Min(closestDistance, Vector3.Distance(origin, position));
+                Vector3 Position = RSMathUtility.TriangularInterpolate(FirstPosition, SecondPosition, ThirdPosition, Weights);
+                ClosestDistance = Mathf.Min(ClosestDistance, Vector3.Distance(RaySource, Position));
             }
         }
 
-        private static void AddTriangle(List<RSVertexData> vertices, List<RSGeometryData> geometries,
-            Vector3 first, Vector3 second, Vector3 third)
+        private static void AddTriangle(List<RSVertexData> SceneVertexList, List<RSGeometryData> SceneGeometryList,
+            Vector3 FirstPosition, Vector3 SecondPosition, Vector3 ThirdPosition)
         {
-            int vertexStart = vertices.Count;
-            vertices.Add(new RSVertexData { Position = first });
-            vertices.Add(new RSVertexData { Position = second });
-            vertices.Add(new RSVertexData { Position = third });
-            geometries.Add(new RSGeometryData { Indice0 = vertexStart, Indice1 = vertexStart + 1, Indice2 = vertexStart + 2 });
+            int VertexStart = SceneVertexList.Count;
+            SceneVertexList.Add(new RSVertexData { Position = FirstPosition });
+            SceneVertexList.Add(new RSVertexData { Position = SecondPosition });
+            SceneVertexList.Add(new RSVertexData { Position = ThirdPosition });
+            SceneGeometryList.Add(new RSGeometryData { Indice0 = VertexStart, Indice1 = VertexStart + 1, Indice2 = VertexStart + 2 });
         }
 
-        private static Vector3 RandomVector(System.Random random, float extent)
+        private static Vector3 RandomVector(System.Random RandomGenerator, float Extent)
         {
-            return new Vector3((float)(random.NextDouble() * 2 - 1),
-                (float)(random.NextDouble() * 2 - 1), (float)(random.NextDouble() * 2 - 1)) * extent;
+            return new Vector3((float)(RandomGenerator.NextDouble() * 2 - 1),
+                (float)(RandomGenerator.NextDouble() * 2 - 1), (float)(RandomGenerator.NextDouble() * 2 - 1)) * Extent;
         }
 
-        private static void Require(bool condition, string message)
+        private static void Require(bool Condition, string Message)
         {
-            if (!condition)
-                throw new InvalidOperationException(message);
+            if (!Condition)
+                throw new InvalidOperationException(Message);
         }
     }
 }

@@ -1,7 +1,6 @@
 using System;
 using System.IO;
 using UnityEditor;
-using UnityEditor.SceneManagement;
 using UnityEngine;
 
 namespace RayStorm
@@ -21,10 +20,7 @@ namespace RayStorm
         [MenuItem("RayStorm/Validate All")]
         public static void RunAll()
         {
-            // Tests create temporary native objects; never discard an unsaved user scene.
-            if (!Application.isBatchMode && !EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
-                return;
-            var result = new ValidationResult
+            ValidationResult Result = new ValidationResult
             {
                 unityVersion = Application.unityVersion,
                 graphicsDevice = SystemInfo.graphicsDeviceName,
@@ -36,20 +32,20 @@ namespace RayStorm
                 RayStormRuntimeValidation.Run();
                 RayStorm.Editor.RayStormGpuValidation.Run();
                 RayStormRendererValidation.Run();
-                result.passed = true;
+                Result.passed = true;
                 Debug.Log("RAYSTORM_VALIDATION_PASSED");
             }
-            catch (Exception exception)
+            catch (Exception Error)
             {
-                result.error = exception.ToString();
-                Debug.LogException(exception);
+                Result.error = Error.ToString();
+                Debug.LogException(Error);
             }
-            string outputDirectory = Path.GetFullPath(Path.Combine(Application.dataPath, "../ValidationResults"));
-            Directory.CreateDirectory(outputDirectory);
-            File.WriteAllText(Path.Combine(outputDirectory, "validation.json"), JsonUtility.ToJson(result, true));
+            string OutputDirectory = Path.GetFullPath(Path.Combine(Application.dataPath, "../ValidationResults"));
+            Directory.CreateDirectory(OutputDirectory);
+            File.WriteAllText(Path.Combine(OutputDirectory, "validation.json"), JsonUtility.ToJson(Result, true));
             if (Application.isBatchMode)
-                EditorApplication.Exit(result.passed ? 0 : 1);
-            else if (!result.passed)
+                EditorApplication.Exit(Result.passed ? 0 : 1);
+            else if (!Result.passed)
                 throw new InvalidOperationException("RayStorm regression validation failed; see the Console and ValidationResults/validation.json.");
         }
     }

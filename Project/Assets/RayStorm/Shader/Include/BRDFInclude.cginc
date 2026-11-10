@@ -9,7 +9,7 @@ inline float FresnelSchlickIOR(float NdotV, float IOR)
     return F0 + (1.0f - F0) * pow(1.0f - NdotV, 5.0f);
 }
 
-// IOR is eta_transmitted / eta_incident. Includes total internal reflection.
+// IOR = eta_t / eta_i.
 inline float FresnelDielectricIOR(float CosineIncident, float IOR)
 {
 	CosineIncident = saturate(CosineIncident);
@@ -78,12 +78,11 @@ inline float SmithGGXMasking(float NormalCosine, float Roughness)
 		+ sqrt(AlphaSquared + (1.0f - AlphaSquared) * NormalCosine * NormalCosine), 0.000001f);
 }
 
-// NDF half-vector sampling: p(H)=D(H)*NdotH, p(L)=p(H)/(4*VdotH).
-// Dividing the GGX BRDF*cosine by this PDF cancels D, leaving this weight.
+// GGX BRDF * NdotL / PDF for NDF half-vector sampling.
 inline float GGXSampleWeight(float NdotV, float NdotL, float NdotH, float VdotH, float Roughness)
 {
 	float Masking = SmithGGXMasking(NdotV, Roughness) * SmithGGXMasking(abs(NdotL), Roughness);
-	return Masking * abs(VdotH) / max(NdotV * NdotH, 0.000001f);
+	return Masking * VdotH / max(NdotV * NdotH, 0.000001f);
 }
 
 inline float3 BRDF(float3 F0, float NdotL, float NdotV, float NdotH, float VdotH, float Roughness)
