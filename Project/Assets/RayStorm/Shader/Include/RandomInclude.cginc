@@ -7,26 +7,37 @@
 // Variables | Random function variavbles
 ////////////////////////////////////////////////////////////////////////////////
 
-float RSRandomSeed = 0.0f;
+// Each ray owns its generator state; no shader uniform is modified.
+uint InitializeRandomState(uint RayIndex, uint DispatchSeed)
+{
+	uint State = RayIndex ^ DispatchSeed ^ 0x9e3779b9u;
+	State ^= State >> 16;
+	State *= 0x7feb352du;
+	State ^= State >> 15;
+	State *= 0x846ca68bu;
+	return State ^ (State >> 16);
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 // Hash Functions | Basic hash functions
 ////////////////////////////////////////////////////////////////////////////////
 
-inline float Random01(float2 seed)
+inline float Random01(inout uint State)
 {
-	RSRandomSeed++;
-	return frac(sin(dot(seed + float2(RSRandomSeed, RSRandomSeed), float2(12.9898f, 78.233f))) * 43758.5453123f);
+	State = State * 747796405u + 2891336453u;
+	uint Word = ((State >> ((State >> 28u) + 4u)) ^ State) * 277803737u;
+	Word = (Word >> 22u) ^ Word;
+	return float(Word >> 8u) * (1.0f / 16777216.0f);
 }
 
-inline float RandomRange(float2 seed, float randomMin, float randomMax)
+inline float RandomRange(inout uint State, float randomMin, float randomMax)
 {
-	return randomMin + Random01(seed) * (randomMax - randomMin);
+	return randomMin + Random01(State) * (randomMax - randomMin);
 }
 
-inline int RandomRangeInt(float2 seed, int randomMin, int randomMax)
+inline int RandomRangeInt(inout uint State, int randomMin, int randomMax)
 {
-	return randomMin + (int)(Random01(seed) * (float)(randomMax - randomMin));
+	return randomMin + (int)(Random01(State) * (float)(randomMax - randomMin));
 }
 
 inline float Dither(float2 UV, float2 Scale)
@@ -62,7 +73,7 @@ inline float2 Hammersley(uint i, uint N)
 // Spherical Direction | Random spherical direction functions
 ////////////////////////////////////////////////////////////////////////////////
 
-inline float3 UniformSampleSpherical(float2 Seed)
+inline float3 UniformSampleSpherical(inout uint Seed)
 {
 	float z = Random01(Seed) * 2.0f - 1.0f;
 	float r = sqrt(1.0f - z * z);
@@ -76,7 +87,7 @@ inline float3 UniformSampleSpherical(float2 Seed)
 	return float3(x, y, z);
 }
 
-inline float3 UniformSampleHemisphere(float2 Seed)
+inline float3 UniformSampleHemisphere(inout uint Seed)
 {
 	float z = Random01(Seed);
 	float r = sqrt(1.0f - z * z);
@@ -90,7 +101,17 @@ inline float3 UniformSampleHemisphere(float2 Seed)
 	return float3(x, y, z);
 }
 
-float3 ImportanceSampleGGX(float2 Seed, float Roughness)
+float3 CosineSampleHemisphere(inout uint State)
+{
+	float RadiusSquared = Random01(State);
+	float Phi = Random01(State) * 2.0f * PI;
+	float SinPhi, CosPhi;
+	sincos(Phi, SinPhi, CosPhi);
+	return float3(sqrt(RadiusSquared) * CosPhi, sqrt(RadiusSquared) * SinPhi,
+		sqrt(max(0.0f, 1.0f - RadiusSquared)));
+}
+
+float3 ImportanceSampleGGX(inout uint Seed, float Roughness)
 {
 	float a = Roughness * Roughness;
 	float a2 = a * a;
@@ -99,7 +120,7 @@ float3 ImportanceSampleGGX(float2 Seed, float Roughness)
 	float SinPhi, CosPhi;
 	sincos(Phi, SinPhi, CosPhi);
 
-	float Theta = Random01(Seed + float2(1.0f, 2.0f));
+	float Theta = Random01(Seed);
 	float CosTheta = sqrt((1.0f - Theta) / (1.0f + (a2 - 1.0f) * Theta));
 	float SinTheta = sqrt(1.0f - CosTheta * CosTheta);
 

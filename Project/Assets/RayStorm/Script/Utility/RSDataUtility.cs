@@ -46,25 +46,78 @@ namespace RayStorm
 
 		public static Texture2D RenderTextureToTexture2D(RenderTexture SourceRenderTexture, TextureFormat Format, bool Mipmap = false)
 		{
-			var NewTexture2D = new Texture2D(SourceRenderTexture.width, SourceRenderTexture.height, Format, Mipmap);
+			if (SourceRenderTexture == null)
+				throw new System.ArgumentNullException(nameof(SourceRenderTexture));
 
-			var OriginActiveRenderTexture = RenderTexture.active;
+			bool IsHDR = Format == TextureFormat.RGBAHalf || Format == TextureFormat.RGBAFloat;
+			Texture2D ReadbackTexture = new Texture2D(SourceRenderTexture.width, SourceRenderTexture.height,
+				IsHDR ? Format : TextureFormat.RGBAFloat, Mipmap, true);
+			Texture2D OutputTexture = null;
+			RenderTexture OriginActiveRenderTexture = RenderTexture.active;
+			try
 			{
 				RenderTexture.active = SourceRenderTexture;
-				NewTexture2D.ReadPixels(new Rect(0, 0, SourceRenderTexture.width, SourceRenderTexture.height), 0, 0);
-				NewTexture2D.Apply();
-			}
-			RenderTexture.active = OriginActiveRenderTexture;
+				ReadbackTexture.ReadPixels(new Rect(0, 0, SourceRenderTexture.width, SourceRenderTexture.height), 0, 0);
+				ReadbackTexture.Apply(Mipmap, false);
+				if (IsHDR)
+				{
+					OutputTexture = ReadbackTexture;
+					ReadbackTexture = null;
+					return OutputTexture;
+				}
 
-			return NewTexture2D;
+				// Match the display pass: exposure 1, Reinhard, then encode LDR files as sRGB.
+				Color[] Pixels = ReadbackTexture.GetPixels();
+				for (int PixelIndex = 0; PixelIndex < Pixels.Length; ++PixelIndex)
+				{
+					Color Pixel = Pixels[PixelIndex];
+					Pixel.r = Mathf.Max(0.0f, Pixel.r);
+					Pixel.g = Mathf.Max(0.0f, Pixel.g);
+					Pixel.b = Mathf.Max(0.0f, Pixel.b);
+					Pixels[PixelIndex] = new Color(
+						Mathf.LinearToGammaSpace(Pixel.r / (1.0f + Pixel.r)),
+						Mathf.LinearToGammaSpace(Pixel.g / (1.0f + Pixel.g)),
+						Mathf.LinearToGammaSpace(Pixel.b / (1.0f + Pixel.b)), 1.0f);
+				}
+				OutputTexture = new Texture2D(SourceRenderTexture.width, SourceRenderTexture.height, Format, Mipmap, false);
+				OutputTexture.SetPixels(Pixels);
+				OutputTexture.Apply(Mipmap, false);
+				return OutputTexture;
+			}
+			catch
+			{
+				DestroyTemporaryTexture(OutputTexture);
+				throw;
+			}
+			finally
+			{
+				RenderTexture.active = OriginActiveRenderTexture;
+				DestroyTemporaryTexture(ReadbackTexture);
+			}
+		}
+
+		private static void DestroyTemporaryTexture(Texture2D Texture)
+		{
+			if (Texture == null)
+				return;
+			if (Application.isPlaying)
+				Object.Destroy(Texture);
+			else
+				Object.DestroyImmediate(Texture);
 		}
 
 		public static void ClearRenderTexture(RenderTexture SourceRenderTexture, Color ClearColor)
 		{
 			RenderTexture OriginActiveRenderTexture = RenderTexture.active;
-			RenderTexture.active = SourceRenderTexture;
-			GL.Clear(true, true, ClearColor);
-			RenderTexture.active = OriginActiveRenderTexture;
+			try
+			{
+				RenderTexture.active = SourceRenderTexture;
+				GL.Clear(true, true, ClearColor);
+			}
+			finally
+			{
+				RenderTexture.active = OriginActiveRenderTexture;
+			}
 		}
 
 		////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -101,6 +154,13 @@ namespace RayStorm
 		{
 			if (Buffer != null)
 				Buffer.Release();
+		}
+
+		public static void ReleaseBuffer(ref ComputeBuffer Buffer)
+		{
+			if (Buffer != null)
+				Buffer.Release();
+			Buffer = null;
 		}
 
 		public static Cubemap CreateSolidCubemap(int Resolution, TextureFormat Format, bool Mipmap, Color SolidColor)

@@ -16,14 +16,6 @@ namespace RayStorm
         /// Override Base Class Functions |
         ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-        public override void OnStartup(RSRenderContext Context)
-        {
-            FrameCount = 1;
-
-            //Context.MainCamera.transform.position = new Vector3(-5, 3, -5);
-            //Context.MainCamera.transform.LookAt(new Vector3(0, 0.5f, 0), Vector3.up);
-        }
-
         public override void OnFrameStartup(RSRenderContext Context)
         {
             // !!!TODO
@@ -36,8 +28,10 @@ namespace RayStorm
 
         public override void OnFrameCollectRenderTask(RSRenderContext Context, out RSRenderTask[] OutputRenderTask)
         {
-            int TextureWidth = Context.MainCamera.pixelWidth;
-            int TextureHeight = Context.MainCamera.pixelHeight;
+            int TextureWidth = Context.RenderWidth;
+            int TextureHeight = Context.RenderHeight;
+            if (TextureWidth <= 0 || TextureHeight <= 0)
+                throw new System.InvalidOperationException("The render dimensions must be positive before collecting tasks.");
 
             List<RSRenderTask> RenderTaskList = new List<RSRenderTask>();
             for (int IterID = 0; IterID < 5; ++IterID)
@@ -69,7 +63,9 @@ namespace RayStorm
                         RSRenderTask NewRenderTask = RSRenderTask.Default;
                         NewRenderTask.FrameID = Context.FrameID;
                         NewRenderTask.WindowPos = new Vector2Int(ColID, RowID) * RenderWindowSize;
-                        NewRenderTask.WindowSize = Vector2Int.one * RenderWindowSize;
+                        NewRenderTask.WindowSize = new Vector2Int(
+                            Mathf.Min(RenderWindowSize, TextureWidth - NewRenderTask.WindowPos.x),
+                            Mathf.Min(RenderWindowSize, TextureHeight - NewRenderTask.WindowPos.y));
                         NewRenderTask.SubpixelCountPerPixel = SubpixelCountPerPixel;
                         RenderTaskList.Add(NewRenderTask);
                     }
@@ -87,7 +83,14 @@ namespace RayStorm
         public override void OnFrameFinished(RSRenderContext Context)
         {
             Texture2D RaytraceTexture2D = RSDataUtility.RenderTextureToTexture2D(Context.RaytraceTexture, TextureFormat.ARGB32);
-            RSAssetUtility.SaveTexture2D(RaytraceTexture2D, "Assets/RaytraceOutput" + Context.FrameID + ".jpg");
+            try
+            {
+                RSAssetUtility.SaveTexture2D(RaytraceTexture2D, RSAssetUtility.GetOutputPath("RaytraceOutput" + Context.FrameID + ".jpg"));
+            }
+            finally
+            {
+                Destroy(RaytraceTexture2D);
+            }
 
             //Context.MainCamera.transform.position = Context.MainCamera.transform.position + new Vector3(1, 0, 0);
             //Context.MainCamera.transform.LookAt(new Vector3(0, 0.5f, 0), Vector3.up);

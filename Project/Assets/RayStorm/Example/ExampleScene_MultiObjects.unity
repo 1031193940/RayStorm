@@ -2145,6 +2145,9 @@ MonoBehaviour:
   IsDisplayOctree: 0
   SkyboxTexture: {fileID: 8900000, guid: fbcb4c4dfd7313747a0f76bf92730da2, type: 3}
   RayStormBehaviour: {fileID: 757686036}
+  RaytraceComputeShader: {fileID: 7200000, guid: c5d52e8d8df48bc4485912808a3f953e, type: 3}
+  AdditiveComputeShader: {fileID: 7200000, guid: 5256a163f3fc67343b16506bacc12b51, type: 3}
+  BlockComputeShader: {fileID: 7200000, guid: 44bafe384e1fd0d42a4884d9bdaad48c, type: 3}
 --- !u!1 &2067311376
 GameObject:
   m_ObjectHideFlags: 0

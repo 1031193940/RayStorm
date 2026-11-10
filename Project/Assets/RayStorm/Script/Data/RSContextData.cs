@@ -8,6 +8,8 @@ namespace RayStorm
     {
         public Camera MainCamera = null;
         public RenderTexture RaytraceTexture = null;
+        public int RenderWidth = 0;
+        public int RenderHeight = 0;
 
         public int FrameID = 0;
         public bool IsRunning = true;

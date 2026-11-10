@@ -336,25 +336,38 @@ bool RayIntersectWithAABBBox(float3 RaySource, float3 RayDirection, float3 AABBB
 	float3 BoundBoxMin = AABBBoxCenter - AABBBoxSize * 0.5f;
 	float3 BoundBoxMax = AABBBoxCenter + AABBBoxSize * 0.5f;
 
-	float3 BoundBoxDistanceMin = (BoundBoxMin - RaySource) / RayDirection;
-	float3 BoundBoxDistanceMax = (BoundBoxMax - RaySource) / RayDirection;
-	float3 IntersectDistanceMin = min(BoundBoxDistanceMin, BoundBoxDistanceMax);
-	float3 IntersectDistanceMax = max(BoundBoxDistanceMin, BoundBoxDistanceMax);
-
-	float DistanceMin = min(IntersectDistanceMax.x, min(IntersectDistanceMax.y, IntersectDistanceMax.z));
-	float DistanceMax = max(IntersectDistanceMin.x, max(IntersectDistanceMin.y, IntersectDistanceMin.z));
-
-	DistanceToIntersectPos = max(0, DistanceMax);
-	DistanceInsideBox = max(0, DistanceMin - DistanceToIntersectPos);
-
-	return DistanceInsideBox > 0.0f;
+	DistanceToIntersectPos = 0.0f;
+	DistanceInsideBox = 0.0f;
+	float exitDistance = 3.402823466e+38f;
+	[unroll]
+	for (int axis = 0; axis < 3; ++axis)
+	{
+		// Avoid 0/0 for rays lying on a slab boundary, including axis-aligned rays.
+		if (abs(RayDirection[axis]) < 1.0e-20f)
+		{
+			if (RaySource[axis] < BoundBoxMin[axis] || RaySource[axis] > BoundBoxMax[axis])
+				return false;
+		}
+		else
+		{
+			float firstDistance = (BoundBoxMin[axis] - RaySource[axis]) / RayDirection[axis];
+			float secondDistance = (BoundBoxMax[axis] - RaySource[axis]) / RayDirection[axis];
+			DistanceToIntersectPos = max(DistanceToIntersectPos, min(firstDistance, secondDistance));
+			exitDistance = min(exitDistance, max(firstDistance, secondDistance));
+			if (exitDistance < DistanceToIntersectPos)
+				return false;
+		}
+	}
+	DistanceInsideBox = exitDistance - DistanceToIntersectPos;
+	return true;
 }
 
-bool RayIntersectWithTriangle(float3 RaySource, float3 RayDirection, float3 p0, float3 p1, float3 p2, out float3 weights)
+bool RayIntersectWithTriangle(float3 RaySource, float3 RayDirection, float3 p0, float3 p1, float3 p2, out float3 weights, out float hitDistance)
 {
 	const float kEpsilon = 0.000001f;
 
 	weights = 0.0f;
+	hitDistance = 0.0f;
 
 	// Triangle edges from p1 to p2 and p3
 	float3 e1 = p1 - p0;
@@ -380,13 +393,20 @@ bool RayIntersectWithTriangle(float3 RaySource, float3 RayDirection, float3 p0, 
 	if (v < 0 || u + v > 1)
 		return false;
 
-	if (dot(e2, q) * invDet > kEpsilon)
+	hitDistance = dot(e2, q) * invDet;
+	if (hitDistance > kEpsilon)
 	{
 		weights = float3(1.0f - u - v, u, v);
 		return true;
 	}
 
 	return false;
+}
+
+bool RayIntersectWithTriangle(float3 RaySource, float3 RayDirection, float3 p0, float3 p1, float3 p2, out float3 weights)
+{
+	float hitDistance;
+	return RayIntersectWithTriangle(RaySource, RayDirection, p0, p1, p2, weights, hitDistance);
 }
 
 #endif // RAYSTORM_MATH_INCLUDE

@@ -11,9 +11,5 @@ namespace RayStorm
         /// Override Base Class Functions |
         ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-        public override void OnStartup(RSRenderContext Context)
-        {
-            FrameCount = 1;
-        }
     }
 }

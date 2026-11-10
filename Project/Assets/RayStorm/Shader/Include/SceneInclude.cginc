@@ -5,121 +5,99 @@
 #include "MathInclude.cginc"
 #include "ConfigInclude.cginc"
 
-StructuredBuffer<RSVertexData>   RSSceneVertexBuffer;
+StructuredBuffer<RSVertexData> RSSceneVertexBuffer;
 StructuredBuffer<RSGeometryData> RSSceneGeometryBuffer;
-StructuredBuffer<RSOctreeData>   RSSceneOctreeBuffer;
+StructuredBuffer<RSOctreeData> RSSceneOctreeBuffer;
 StructuredBuffer<int> RSSceneOctreeGeometryIDBuffer;
+uint SceneOctreeCount;
+uint SceneGeometryCount;
 
-////////////////////////////////////////////////////////////////////////////////////////////////////
-// Scene |
-////////////////////////////////////////////////////////////////////////////////////////////////////
-
-int FindClosestOctreeLeaf(float3 RaySource, float3 RayDirection)
+void TestSceneGeometry(RSRayData ray, int geometryID, inout int closestGeometryID,
+    inout float closestDistance, inout float3 closestWeights)
 {
-	// Is intersect with octree root
-	RSOctreeData OctreeRoot = RSSceneOctreeBuffer[0];
-	float OctreeRootDistance, OctreeRootTransition;
-	if (!RayIntersectWithAABBBox(RaySource, RayDirection, OctreeRoot.center, OctreeRoot.size, OctreeRootDistance, OctreeRootTransition))
-		return -1;
-
-	int OctreeID = 0;
-	while (OctreeID >= 0)
-	{
-		RSOctreeData OctreeUnit = RSSceneOctreeBuffer[OctreeID];
-		if (OctreeUnit.geometryCount > 0)
-			break;
-
-		int ClosestSubtreeID = -1;
-		float ClosestSubtreeDistance = RAYTRACE_MAX_DISTANCE;
-		for (int SubtreeID = OctreeUnit.subtreeStartID; SubtreeID < OctreeUnit.subtreeStartID + OctreeUnit.subtreeCount; ++SubtreeID)
-		{
-			RSOctreeData SubtreeData = RSSceneOctreeBuffer[SubtreeID];
-			float SubtreeDistance, SubtreeTransition;
-			if (!RayIntersectWithAABBBox(RaySource, RayDirection, SubtreeData.center, SubtreeData.size, SubtreeDistance, SubtreeTransition))
-				continue;
-
-			if (SubtreeDistance < ClosestSubtreeDistance)
-			{
-				ClosestSubtreeID = SubtreeID;
-				ClosestSubtreeDistance = SubtreeDistance;
-			}
-		}
-
-		if (ClosestSubtreeID == -1)
-		{
-			float OctreeDistance, OctreeTransition;
-			RayIntersectWithAABBBox(RaySource, RayDirection, OctreeUnit.center, OctreeUnit.size, OctreeDistance, OctreeTransition);
-			RaySource += RayDirection * (OctreeDistance + OctreeTransition + RAYTRACE_EPSILON);
-
-			OctreeID = OctreeUnit.parentTreeID;
-		}
-		else
-			OctreeID = ClosestSubtreeID;
-	}
-
-	return OctreeID;
+    RSGeometryData geometry = RSSceneGeometryBuffer[geometryID];
+    float3 firstPosition = RSSceneVertexBuffer[geometry.indice0].position;
+    float3 secondPosition = RSSceneVertexBuffer[geometry.indice1].position;
+    float3 thirdPosition = RSSceneVertexBuffer[geometry.indice2].position;
+    float3 weights;
+    float hitDistance;
+    if (RayIntersectWithTriangle(ray.position, ray.direction, firstPosition,
+        secondPosition, thirdPosition, weights, hitDistance) && hitDistance < closestDistance)
+    {
+        closestGeometryID = geometryID;
+        closestDistance = hitDistance;
+        closestWeights = weights;
+    }
 }
 
-bool FindClosestRayHit(RSRayData Ray, out RSRayIntersectData RayIntersectData)
+bool FindClosestRayHit(RSRayData ray, out RSRayIntersectData hit)
 {
-	int ClosestGeometryID = -1;
-	float3 ClosestGeometryWeights = 0.0f;
-	float  ClosestGeometryDistance = RAYTRACE_MAX_DISTANCE;
+    hit = (RSRayIntersectData)0;
+    int closestGeometryID = -1;
+    float closestDistance = RAYTRACE_MAX_DISTANCE;
+    float3 closestWeights = 0.0f;
 
-	float3 RaySource = Ray.position;
-	float3 RayDirection = Ray.direction;
-	while (true)
-	{
-		int OctreeID = FindClosestOctreeLeaf(RaySource, RayDirection);
-		if (OctreeID == -1)
-			break;
+    if (SceneOctreeCount == 0 || SceneGeometryCount == 0)
+        return false;
 
-		RSOctreeData OctreeData = RSSceneOctreeBuffer[OctreeID];
-		for (int GeometryIndiceID = OctreeData.geometryStartID; GeometryIndiceID < OctreeData.geometryStartID + OctreeData.geometryCount; ++GeometryIndiceID)
-		{
-			int GeometryID = RSSceneOctreeGeometryIDBuffer[GeometryIndiceID];
-			RSGeometryData GeometryData = RSSceneGeometryBuffer[GeometryID];
-			float3 p0 = RSSceneVertexBuffer[GeometryData.indice0].position;
-			float3 p1 = RSSceneVertexBuffer[GeometryData.indice1].position;
-			float3 p2 = RSSceneVertexBuffer[GeometryData.indice2].position;
+    // Depth-first traversal visits each node at most once; no epsilon ray marching.
+    // Depth 7 requires at most 1 + 7 * 7 = 50 pending nodes. Overflow safely falls
+    // back to a bounded geometry scan instead of dropping geometry or hanging.
+    const int stackCapacity = 64;
+    int pendingNodes[64];
+    pendingNodes[0] = 0;
+    int pendingCount = 1;
+    bool requireGeometryFallback = false;
+    uint visitedCount = 0;
+    [loop]
+    while (pendingCount > 0 && visitedCount < SceneOctreeCount)
+    {
+        int nodeID = pendingNodes[--pendingCount];
+        ++visitedCount;
+        RSOctreeData node = RSSceneOctreeBuffer[nodeID];
+        float entryDistance, insideDistance;
+        if (!RayIntersectWithAABBBox(ray.position, ray.direction, node.center,
+            node.size, entryDistance, insideDistance) || entryDistance > closestDistance)
+            continue;
 
-			float3 weights = 0.0f;
-			if (RayIntersectWithTriangle(Ray.position, Ray.direction, p0, p1, p2, weights))
-			{
-				float3 RayHitPosition = TriangularInterpolate(p0, p1, p2, weights);
-				float  RayHitDistance = distance(Ray.position, RayHitPosition);
-				if (RayHitDistance < ClosestGeometryDistance)
-				{
-					ClosestGeometryID = GeometryID;
-					ClosestGeometryDistance = RayHitDistance;
-					ClosestGeometryWeights = weights;
-				}
-			}
-		}
+        for (int geometryOffset = 0; geometryOffset < node.geometryCount; ++geometryOffset)
+        {
+            int geometryID = RSSceneOctreeGeometryIDBuffer[node.geometryStartID + geometryOffset];
+            TestSceneGeometry(ray, geometryID, closestGeometryID, closestDistance, closestWeights);
+        }
 
-		float OctreeDistance, OctreeTransition;
-		RayIntersectWithAABBBox(RaySource, RayDirection, OctreeData.center, OctreeData.size, OctreeDistance, OctreeTransition);
-		RaySource += RayDirection * (OctreeDistance + OctreeTransition + RAYTRACE_EPSILON);
-	}
+        if (pendingCount + node.subtreeCount > stackCapacity)
+        {
+            requireGeometryFallback = true;
+            break;
+        }
+        for (int childOffset = 0; childOffset < node.subtreeCount; ++childOffset)
+            pendingNodes[pendingCount++] = node.subtreeStartID + childOffset;
+    }
 
-	if (ClosestGeometryID != -1)
-	{
-		RSGeometryData GeometryData = RSSceneGeometryBuffer[ClosestGeometryID];
-		RSVertexData v0 = RSSceneVertexBuffer[GeometryData.indice0];
-		RSVertexData v1 = RSSceneVertexBuffer[GeometryData.indice1];
-		RSVertexData v2 = RSSceneVertexBuffer[GeometryData.indice2];
+    requireGeometryFallback = requireGeometryFallback || pendingCount > 0;
+    if (requireGeometryFallback)
+    {
+        for (uint geometryID = 0; geometryID < SceneGeometryCount; ++geometryID)
+            TestSceneGeometry(ray, geometryID, closestGeometryID, closestDistance, closestWeights);
+    }
 
-		RayIntersectData.materialID = GeometryData.materialID;
-		RayIntersectData.position = TriangularInterpolate(v0.position, v1.position, v2.position, ClosestGeometryWeights);
-		RayIntersectData.uv0 = TriangularInterpolate(v0.uv0, v1.uv0, v2.uv0, ClosestGeometryWeights);
-		RayIntersectData.uv1 = TriangularInterpolate(v0.uv1, v1.uv1, v2.uv1, ClosestGeometryWeights);
-		RayIntersectData.normal = normalize(TriangularInterpolate(v0.normal, v1.normal, v2.normal, ClosestGeometryWeights));
-		return true;
-	}
+    if (closestGeometryID == -1)
+        return false;
 
-
-	RayIntersectData = (RSRayIntersectData)0;
-	return false;
+    RSGeometryData closestGeometry = RSSceneGeometryBuffer[closestGeometryID];
+    RSVertexData firstVertex = RSSceneVertexBuffer[closestGeometry.indice0];
+    RSVertexData secondVertex = RSSceneVertexBuffer[closestGeometry.indice1];
+    RSVertexData thirdVertex = RSSceneVertexBuffer[closestGeometry.indice2];
+    hit.materialID = closestGeometry.materialID;
+    hit.position = TriangularInterpolate(firstVertex.position, secondVertex.position, thirdVertex.position, closestWeights);
+    hit.uv0 = TriangularInterpolate(firstVertex.uv0, secondVertex.uv0, thirdVertex.uv0, closestWeights);
+    hit.uv1 = TriangularInterpolate(firstVertex.uv1, secondVertex.uv1, thirdVertex.uv1, closestWeights);
+    hit.geometricNormal = normalize(cross(secondVertex.position - firstVertex.position,
+        thirdVertex.position - firstVertex.position));
+    float3 shadingNormal = TriangularInterpolate(firstVertex.normal, secondVertex.normal, thirdVertex.normal, closestWeights);
+    hit.normal = dot(shadingNormal, shadingNormal) > 1.0e-20f ? normalize(shadingNormal) : hit.geometricNormal;
+    return true;
 }
 
 #endif // RAYSTORM_SCENE_INCLUDE

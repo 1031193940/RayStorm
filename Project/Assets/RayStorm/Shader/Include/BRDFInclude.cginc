@@ -3,9 +3,25 @@
 
 inline float FresnelSchlickIOR(float NdotV, float IOR)
 {
+    NdotV = saturate(NdotV);
     float F0 = (1.0f - IOR) / (1.0f + IOR);
     F0 *= F0;
     return F0 + (1.0f - F0) * pow(1.0f - NdotV, 5.0f);
+}
+
+// IOR is eta_transmitted / eta_incident. Includes total internal reflection.
+inline float FresnelDielectricIOR(float CosineIncident, float IOR)
+{
+	CosineIncident = saturate(CosineIncident);
+	float SineTransmittedSquared = (1.0f - CosineIncident * CosineIncident) / (IOR * IOR);
+	if (SineTransmittedSquared >= 1.0f)
+		return 1.0f;
+	float CosineTransmitted = sqrt(max(0.0f, 1.0f - SineTransmittedSquared));
+	float Parallel = (IOR * CosineIncident - CosineTransmitted)
+		/ max(IOR * CosineIncident + CosineTransmitted, 0.000001f);
+	float Perpendicular = (CosineIncident - IOR * CosineTransmitted)
+		/ max(CosineIncident + IOR * CosineTransmitted, 0.000001f);
+	return saturate(0.5f * (Parallel * Parallel + Perpendicular * Perpendicular));
 }
 
 inline float3 RefractIOR(float3 V, float3 N, float IOR)
@@ -40,16 +56,34 @@ inline float BRDF_D_GGX(float NdotH, float Roughness)
 
 inline float3 BRDF_F_Schlick(float3 F0, float VdotH)
 {
-	float f = Pow5(1.0 - VdotH);
+	float f = Pow5(1.0 - saturate(VdotH));
 	return f + F0 * (1.0 - f);
 }
 
 inline float BRDF_V_Smith(float NdotL, float NdotV, float Roughness)
 {
-	float a2 = Roughness * Roughness;
+	float a = Roughness * Roughness;
+	float a2 = a * a;
 	float VisSmithV = NdotV + sqrt(NdotV * (NdotV - NdotV * a2) + a2);
 	float VisSmithL = NdotL + sqrt(NdotL * (NdotL - NdotL * a2) + a2);
 	return rcp(VisSmithV * VisSmithL);
+}
+
+inline float SmithGGXMasking(float NormalCosine, float Roughness)
+{
+	NormalCosine = saturate(NormalCosine);
+	float Alpha = Roughness * Roughness;
+	float AlphaSquared = Alpha * Alpha;
+	return (2.0f * NormalCosine) / max(NormalCosine
+		+ sqrt(AlphaSquared + (1.0f - AlphaSquared) * NormalCosine * NormalCosine), 0.000001f);
+}
+
+// NDF half-vector sampling: p(H)=D(H)*NdotH, p(L)=p(H)/(4*VdotH).
+// Dividing the GGX BRDF*cosine by this PDF cancels D, leaving this weight.
+inline float GGXSampleWeight(float NdotV, float NdotL, float NdotH, float VdotH, float Roughness)
+{
+	float Masking = SmithGGXMasking(NdotV, Roughness) * SmithGGXMasking(abs(NdotL), Roughness);
+	return Masking * abs(VdotH) / max(NdotV * NdotH, 0.000001f);
 }
 
 inline float3 BRDF(float3 F0, float NdotL, float NdotV, float NdotH, float VdotH, float Roughness)

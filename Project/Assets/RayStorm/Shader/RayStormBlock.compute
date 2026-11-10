@@ -1,8 +1,3 @@
-#include "Include/DataInclude.cginc"
-#include "Include/MathInclude.cginc"
-#include "Include/RandomInclude.cginc"
-#include "Include/ConfigInclude.cginc"
-
 #pragma kernel CSKernelMain
 
 uint BlockPosX;
@@ -10,19 +5,37 @@ uint BlockPosY;
 uint BlockSizeX;
 uint BlockSizeY;
 float4 BlockColor;
+int ShowRenderBlock;
+int OutputIsGamma;
 Texture2D<float4> Source;
 RWTexture2D<float4> Target;
 
-[numthreads(32, 32, 1)]
+float3 LinearToSRGB(float3 Color)
+{
+	float3 Low = Color * 12.92f;
+	float3 High = 1.055f * pow(Color, 1.0f / 2.4f) - 0.055f;
+	return float3(Color.r <= 0.0031308f ? Low.r : High.r,
+		Color.g <= 0.0031308f ? Low.g : High.g,
+		Color.b <= 0.0031308f ? Low.b : High.b);
+}
+
+[numthreads(8, 8, 1)]
 void CSKernelMain(uint3 id : SV_DispatchThreadID)
 {
-	float3 FinalColor = Source[id.xy].rgb;
-	
-	if (id.x >= BlockPosX && id.x <= BlockPosX + BlockSizeX &&
-		id.y >= BlockPosY && id.y <= BlockPosY + BlockSizeY)
-	{
-		FinalColor = lerp(FinalColor, BlockColor.rgb, BlockColor.a);
-	}
+	uint SourceWidth, SourceHeight, TargetWidth, TargetHeight;
+	Source.GetDimensions(SourceWidth, SourceHeight);
+	Target.GetDimensions(TargetWidth, TargetHeight);
+	if (id.x >= min(SourceWidth, TargetWidth) || id.y >= min(SourceHeight, TargetHeight))
+		return;
 
-	Target[id.xy] = float4(FinalColor, 1.0);
+	float3 Radiance = max(Source[id.xy].rgb, 0.0f);
+	float3 DisplayColor = Radiance / (1.0f + Radiance);
+	if (OutputIsGamma != 0)
+		DisplayColor = LinearToSRGB(DisplayColor);
+
+	if (ShowRenderBlock != 0 && id.x >= BlockPosX && id.x - BlockPosX < BlockSizeX
+		&& id.y >= BlockPosY && id.y - BlockPosY < BlockSizeY)
+		DisplayColor = lerp(DisplayColor, BlockColor.rgb, BlockColor.a);
+
+	Target[id.xy] = float4(DisplayColor, 1.0f);
 }

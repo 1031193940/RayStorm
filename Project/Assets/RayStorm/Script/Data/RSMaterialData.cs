@@ -18,6 +18,8 @@ namespace RayStorm
             {
                 RSMaterialData DefaultMaterialData = default(RSMaterialData);
                 DefaultMaterialData.Albedo = Vector3.one * 0.5f;
+                DefaultMaterialData.Roughness = 1.0f;
+                DefaultMaterialData.IndexOfRefraction = 1.4f;
                 return DefaultMaterialData;
             }
         }

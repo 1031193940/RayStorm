@@ -1,6 +1,4 @@
-
 #pragma kernel CSKernelMain
-
 #include "Include/DataInclude.cginc"
 
 uint RaytraceWindowPosX;
@@ -11,25 +9,27 @@ uint SubpixelCountPerPixel;
 StructuredBuffer<RSOutputData> RaytraceWindowBuffer;
 RWTexture2D<float4> RaytraceOutputTexture;
 
-[numthreads(1024, 1, 1)]
+[numthreads(128, 1, 1)]
 void CSKernelMain(uint3 id : SV_DispatchThreadID)
 {
-	if (id.x >= RaytraceWindowSizeX * RaytraceWindowSizeY)
+	if (id.x >= RaytraceWindowSizeX * RaytraceWindowSizeY || SubpixelCountPerPixel == 0)
 		return;
 
-	uint PixelID = id.x;
-	uint SubpixelStartID = PixelID * SubpixelCountPerPixel;
+	uint2 TexturePixelID = uint2(RaytraceWindowPosX, RaytraceWindowPosY)
+		+ uint2(id.x % RaytraceWindowSizeX, id.x / RaytraceWindowSizeX);
+	uint TextureWidth, TextureHeight;
+	RaytraceOutputTexture.GetDimensions(TextureWidth, TextureHeight);
+	if (TexturePixelID.x >= TextureWidth || TexturePixelID.y >= TextureHeight)
+		return;
 
-	float4 RaytraceColor = 0.0f;
-	for (uint LocalID = 0; LocalID < SubpixelCountPerPixel; ++LocalID)
-	{
-		uint SubpixelID = SubpixelStartID + LocalID;
-		RaytraceColor += RaytraceWindowBuffer[SubpixelID].data * rcp(SubpixelCountPerPixel);
-	}
+	uint SubpixelStartID = id.x * SubpixelCountPerPixel;
+	float3 SampleSum = 0.0f;
+	for (uint SampleID = 0; SampleID < SubpixelCountPerPixel; ++SampleID)
+		SampleSum += RaytraceWindowBuffer[SubpixelStartID + SampleID].data.rgb;
 
-	uint2 TexturePixelID = int2(RaytraceWindowPosX, RaytraceWindowPosY) + int2(PixelID % RaytraceWindowSizeX, PixelID / RaytraceWindowSizeX);
-	
-	float3 Color = (RaytraceOutputTexture[TexturePixelID].rgb * RaytraceOutputTexture[TexturePixelID].a + RaytraceColor.rgb);
-	float  Alpha = RaytraceOutputTexture[TexturePixelID].a + 1.0;
-	RaytraceOutputTexture[TexturePixelID] = float4(Color / Alpha, Alpha);
+	// ARGBFloat stores the linear mean in RGB and the actual sample count in A.
+	float4 Previous = RaytraceOutputTexture[TexturePixelID];
+	float SampleCount = Previous.a + SubpixelCountPerPixel;
+	float3 Mean = (Previous.rgb * Previous.a + SampleSum) / SampleCount;
+	RaytraceOutputTexture[TexturePixelID] = float4(Mean, SampleCount);
 }

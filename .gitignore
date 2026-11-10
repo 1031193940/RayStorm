@@ -1,0 +1,25 @@
+# Unity generated state
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Ll]ogs/
+[Uu]ser[Ss]ettings/
+[Bb]uild/
+[Bb]uilds/
+[Mm]emoryCaptures/
+.vs/
+.idea/
+*.csproj
+*.sln
+*.sln.DotSettings.user
+*.pidb
+*.booproj
+*.unityproj
+*.user
+*.userprefs
+*.suo
+*.tmp
+*.log
+Project/Assets/RaytraceOutput*.jpg*
+Project/Assets/RaytraceTexture.jpg*
+ValidationResults/

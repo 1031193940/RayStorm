@@ -1,4 +1,4 @@
-﻿#include "Include/DataInclude.cginc"
+#include "Include/DataInclude.cginc"
 #include "Include/MathInclude.cginc"
 #include "Include/RandomInclude.cginc"
 #include "Include/ConfigInclude.cginc"
@@ -7,58 +7,37 @@
 
 #pragma kernel CSKernelMain
 
-StructuredBuffer<RSSourceData>   RayStormSourceBuffer;
+uint RayCount;
+uint RSRandomSeed;
+StructuredBuffer<RSSourceData> RayStormSourceBuffer;
 RWStructuredBuffer<RSOutputData> RayStormOutputBuffer;
 
-[numthreads(1024, 1, 1)]
+[numthreads(128, 1, 1)]
 void CSKernelMain(uint3 id : SV_DispatchThreadID)
 {
-	if (id.x >= RayStormOutputBuffer.Length)
+	if (id.x >= RayCount)
 		return;
 
+	RSSourceData Source = RayStormSourceBuffer[id.x];
 	RSRayData Ray = (RSRayData)0;
-	Ray.id = RayStormSourceBuffer[id.x].id;
-	Ray.position = RayStormSourceBuffer[id.x].position;
-	Ray.direction = RayStormSourceBuffer[id.x].direction;
-	Ray.energy = RayStormSourceBuffer[id.x].energy;
+	Ray.id = Source.id;
+	Ray.position = Source.position;
+	Ray.direction = Source.direction;
+	Ray.energy = Source.energy;
+	Ray.randomState = InitializeRandomState(id.x, RSRandomSeed);
 
 	float3 RaytraceColor = 0.0f;
 	for (int BounceID = 0; BounceID < RAYTRACE_MAX_BOUNCES; ++BounceID)
 	{
-
 		RSRayIntersectData RayIntersectData;
+		float3 IncomingEnergy = Ray.energy;
+		float3 EmittedRadiance;
 		if (FindClosestRayHit(Ray, RayIntersectData))
-		{
-			//for (uint LightID = 0; LightID < GetDynamicLightCount(); ++LightID)
-			//{
-			//	RSRayData ShadowRay = (RSRayData)0;
-			//	ShadowRay.id = Ray.id;
-			//	ShadowRay.position = Ray.position;
-			//	ShadowRay.direction = DynamicLightImportanceSampleDirection(LightID, Ray.position);
-			//	ShadowRay.energy = 1.0f;
-
-			//	RSRayIntersectData ShadowRayIntersectData;
-			//	if (!FindClosestRayHit(ShadowRay, ShadowRayIntersectData))
-			//	{
-			//		float3 N = RayIntersectData.normal;
-			//		float3 L = DynamicLightImportanceSampleDirection(LightID, Ray.position);
-			//		float3 V = -Ray.direction;
-			//		float3 H = normalize(L + V);
-
-			//		float NdotL = saturate(dot(N, L));
-			//		float NdotV = saturate(dot(N, V));
-			//		float NdotH = saturate(dot(N, H));
-			//		float VdotH = saturate(dot(V, H));
-
-			//		//float3 LightEnergy = BRDF(0.04, NdotL, NdotV, NdotH, VdotH, Roughness)
-			//	}
-			//}
-
-			RaytraceColor += Ray.energy * RayHitSurface(Ray, RayIntersectData);
-		}
+			EmittedRadiance = RayHitSurface(Ray, RayIntersectData);
 		else
-			RaytraceColor += Ray.energy * RayHitSkybox(Ray, RayIntersectData);
+			EmittedRadiance = RayHitSkybox(Ray, RayIntersectData);
 
+		RaytraceColor += IncomingEnergy * EmittedRadiance;
 		if (dot(Ray.energy, 1.0f) < RAYTRACE_EPSILON)
 			break;
 	}

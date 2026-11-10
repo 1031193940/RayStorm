@@ -58,6 +58,7 @@ struct RSRayData
 	float3 position;
 	float3 direction;
 	float3 energy;
+	uint randomState;
 };
 
 struct RSRayIntersectData
@@ -67,6 +68,7 @@ struct RSRayIntersectData
 	float2 uv0;
 	float2 uv1;
 	float3 normal;
+	float3 geometricNormal;
 };
 
 #endif // RAYSTORM_DATA_INCLUDE

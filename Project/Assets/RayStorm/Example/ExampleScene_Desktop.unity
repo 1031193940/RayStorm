@@ -399,7 +399,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f4c2f02e4b3b5e044b3afcdd8dc7b134, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  FrameCount: 0
+  FrameCount: 1
 --- !u!1 &1189303248
 GameObject:
   m_ObjectHideFlags: 0
@@ -434,6 +434,9 @@ MonoBehaviour:
   IsDisplayOctree: 0
   SkyboxTexture: {fileID: 8900000, guid: d7b2306e58d580b489d335aed2ccb2ec, type: 3}
   RayStormBehaviour: {fileID: 794876699}
+  RaytraceComputeShader: {fileID: 7200000, guid: c5d52e8d8df48bc4485912808a3f953e, type: 3}
+  AdditiveComputeShader: {fileID: 7200000, guid: 5256a163f3fc67343b16506bacc12b51, type: 3}
+  BlockComputeShader: {fileID: 7200000, guid: 44bafe384e1fd0d42a4884d9bdaad48c, type: 3}
 --- !u!81 &1189303250
 AudioListener:
   m_ObjectHideFlags: 0

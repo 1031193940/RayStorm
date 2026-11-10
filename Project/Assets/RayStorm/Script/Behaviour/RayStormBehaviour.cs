@@ -7,7 +7,7 @@ namespace RayStorm
 {
     public abstract class RayStormBehaviour : ScriptableObject
     {
-        public int FrameCount = 0; // 0 means no frame count limit
+        [Min(0)] public int FrameCount = 1; // 0 means no frame count limit
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////
         /// Virtual Functions |
@@ -40,20 +40,22 @@ namespace RayStorm
 
         public virtual void OnFrameCollectSceneObject(RSRenderContext Context, out RSSceneObject[] OutputSceneObject)
         {
-            OutputSceneObject = RSSceneUtility.CollectSceneObject();
+            OutputSceneObject = RSSceneUtility.CollectSceneObject(Context.MainCamera);
         }
 
         public virtual void OnFrameCollectRenderTask(RSRenderContext Context, out RSRenderTask[] OutputRenderTask)
         {
-            int TextureWidth = Context.MainCamera.pixelWidth;
-            int TextureHeight = Context.MainCamera.pixelHeight;
+            int TextureWidth = Context.RenderWidth;
+            int TextureHeight = Context.RenderHeight;
+            if (TextureWidth <= 0 || TextureHeight <= 0)
+                throw new System.InvalidOperationException("The render dimensions must be positive before collecting tasks.");
 
             int RenderWindowSize;
             int SubpixelCountPerPixel;
             switch (Context.FrameID)
             {
                 case 0:
-                    RenderWindowSize = Mathf.Max(TextureWidth, TextureHeight);
+                    RenderWindowSize = 128;
                     SubpixelCountPerPixel = 1;
                     break;
                 case 1:
@@ -76,7 +78,9 @@ namespace RayStorm
                     RSRenderTask NewRenderTask = RSRenderTask.Default;
                     NewRenderTask.FrameID = Context.FrameID;
                     NewRenderTask.WindowPos = new Vector2Int(ColID, RowID) * RenderWindowSize;
-                    NewRenderTask.WindowSize = Vector2Int.one * RenderWindowSize;
+                    NewRenderTask.WindowSize = new Vector2Int(
+                        Mathf.Min(RenderWindowSize, TextureWidth - NewRenderTask.WindowPos.x),
+                        Mathf.Min(RenderWindowSize, TextureHeight - NewRenderTask.WindowPos.y));
                     NewRenderTask.SubpixelCountPerPixel = SubpixelCountPerPixel;
                     RenderTaskList.Add(NewRenderTask);
                 }

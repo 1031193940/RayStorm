@@ -78,26 +78,43 @@ namespace RayStorm
             return FoundAssetFilePath;
         }
 
+        public static string GetOutputPath(string FileName)
+        {
+#if UNITY_EDITOR
+            return System.IO.Path.Combine(Application.dataPath, FileName);
+#else
+            return System.IO.Path.Combine(Application.persistentDataPath, FileName);
+#endif
+        }
+
         public static void SaveTexture2D(Texture2D SourceTexture2D, string FilePath)
         {
-            #if UNITY_EDITOR
+            if (SourceTexture2D == null)
+                throw new System.ArgumentNullException(nameof(SourceTexture2D));
+
+            byte[] EncodedBytes;
+            var Extension = System.IO.Path.GetExtension(FilePath).ToLowerInvariant();
+            if (Extension == ".png")
+                EncodedBytes = SourceTexture2D.EncodeToPNG();
+            else if (Extension == ".tga")
+                EncodedBytes = SourceTexture2D.EncodeToTGA();
+            else if (Extension == ".exr")
+                EncodedBytes = SourceTexture2D.EncodeToEXR(Texture2D.EXRFlags.CompressZIP);
+            else
+                EncodedBytes = SourceTexture2D.EncodeToJPG();
+
+            string AbsoluteFilePath = System.IO.Path.GetFullPath(FilePath);
+            System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(AbsoluteFilePath));
+            System.IO.File.WriteAllBytes(AbsoluteFilePath, EncodedBytes);
+
+#if UNITY_EDITOR
+            string AssetDirectory = System.IO.Path.GetFullPath(Application.dataPath) + System.IO.Path.DirectorySeparatorChar;
+            if (AbsoluteFilePath.StartsWith(AssetDirectory, System.StringComparison.OrdinalIgnoreCase))
             {
-                byte[] EncodedBytes;
-
-                var LowerFilePath = FilePath.ToLower();
-                if (LowerFilePath.EndsWith(".png"))
-                    EncodedBytes = SourceTexture2D.EncodeToPNG();
-                else if (LowerFilePath.EndsWith(".tga"))
-                    EncodedBytes = SourceTexture2D.EncodeToTGA();
-                else if (LowerFilePath.EndsWith(".exr"))
-                    EncodedBytes = SourceTexture2D.EncodeToEXR(Texture2D.EXRFlags.CompressZIP);
-                else
-                    EncodedBytes = SourceTexture2D.EncodeToJPG();
-
-                System.IO.File.WriteAllBytes(FilePath, EncodedBytes);
-                AssetDatabase.ImportAsset(FilePath);
+                string RelativeAssetPath = "Assets/" + AbsoluteFilePath.Substring(AssetDirectory.Length).Replace('\\', '/');
+                AssetDatabase.ImportAsset(RelativeAssetPath);
             }
-            #endif // UNITY_EDITOR
+#endif
         }
 
         public static System.Type[] FindSubclassOf<T>()

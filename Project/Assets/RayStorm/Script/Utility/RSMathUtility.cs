@@ -54,7 +54,9 @@ namespace RayStorm
 						  AABBSize.y * Mathf.Abs(Vector3.Dot(Axis, n1)) * 0.5f +
 						  AABBSize.z * Mathf.Abs(Vector3.Dot(Axis, n2)) * 0.5f;
 
-				if (Mathf.Max(-Mathf.Max(Mathf.Max(p0, p1), p2), Mathf.Min(Mathf.Min(p0, p1), p2)) > r)
+				float projectionMagnitude = Mathf.Max(1.0f, Mathf.Max(r, Mathf.Max(Mathf.Abs(p0), Mathf.Max(Mathf.Abs(p1), Mathf.Abs(p2)))));
+				float projectionTolerance = projectionMagnitude * (8.0f * 1.192092896e-7f);
+				if (Mathf.Max(-Mathf.Max(Mathf.Max(p0, p1), p2), Mathf.Min(Mathf.Min(p0, p1), p2)) > r + projectionTolerance)
 					return false;
 			}
 
@@ -66,19 +68,26 @@ namespace RayStorm
 			Vector3 BoundBoxMin = AABBBoxCenter - AABBBoxSize * 0.5f;
 			Vector3 BoundBoxMax = AABBBoxCenter + AABBBoxSize * 0.5f;
 
-			Vector3 InverseRayDirection = new Vector3(1.0f / RayDirection.x, 1.0f / RayDirection.y, 1.0f / RayDirection.z);
-			Vector3 BoundBoxDistanceMin = Vector3.Scale((BoundBoxMin - RaySource), InverseRayDirection);
-			Vector3 BoundBoxDistanceMax = Vector3.Scale((BoundBoxMax - RaySource), InverseRayDirection);
-			Vector3 IntersectDistanceMin = Vector3.Min(BoundBoxDistanceMin, BoundBoxDistanceMax);
-			Vector3 IntersectDistanceMax = Vector3.Max(BoundBoxDistanceMin, BoundBoxDistanceMax);
-
-			float DistanceMin = Mathf.Min(IntersectDistanceMax.x, Mathf.Min(IntersectDistanceMax.y, IntersectDistanceMax.z));
-			float DistanceMax = Mathf.Max(IntersectDistanceMin.x, Mathf.Max(IntersectDistanceMin.y, IntersectDistanceMin.z));
-
-			DistanceToIntersectPos = Mathf.Max(0, DistanceMax);
-			DistanceInsideBox = Mathf.Max(0, DistanceMin - DistanceToIntersectPos);
-
-			return DistanceInsideBox > 0.0f;
+			DistanceToIntersectPos = 0.0f;
+			DistanceInsideBox = 0.0f;
+			float exitDistance = float.MaxValue;
+			for (int axis = 0; axis < 3; ++axis)
+			{
+				if (Mathf.Abs(RayDirection[axis]) < 1.0e-20f)
+				{
+					if (RaySource[axis] < BoundBoxMin[axis] || RaySource[axis] > BoundBoxMax[axis])
+						return false;
+					continue;
+				}
+				float firstDistance = (BoundBoxMin[axis] - RaySource[axis]) / RayDirection[axis];
+				float secondDistance = (BoundBoxMax[axis] - RaySource[axis]) / RayDirection[axis];
+				DistanceToIntersectPos = Mathf.Max(DistanceToIntersectPos, Mathf.Min(firstDistance, secondDistance));
+				exitDistance = Mathf.Min(exitDistance, Mathf.Max(firstDistance, secondDistance));
+				if (exitDistance < DistanceToIntersectPos)
+					return false;
+			}
+			DistanceInsideBox = exitDistance - DistanceToIntersectPos;
+			return true;
 		}
 
 		public static bool RayIntersectWithTriangle(Vector3 RaySource, Vector3 RayDirection, Vector3 p0, Vector3 p1, Vector3 p2, out Vector3 weights)
