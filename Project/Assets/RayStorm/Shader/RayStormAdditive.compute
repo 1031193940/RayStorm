@@ -8,6 +8,9 @@ uint RaytraceWindowSizeY;
 uint SubpixelCountPerPixel;
 StructuredBuffer<RSOutputData> RaytraceWindowBuffer;
 RWTexture2D<float4> RaytraceOutputTexture;
+RWTexture2D<float4> RaytraceStatistics;
+
+static const float MinimumSamples = 128.0f;
 
 [numthreads(128, 1, 1)]
 void CSKernelMain(uint3 id : SV_DispatchThreadID)
@@ -22,14 +25,28 @@ void CSKernelMain(uint3 id : SV_DispatchThreadID)
 	if (TexturePixelID.x >= TextureWidth || TexturePixelID.y >= TextureHeight)
 		return;
 
-	uint SubpixelStartID = id.x * SubpixelCountPerPixel;
-	float3 SampleSum = 0.0f;
-	for (uint SampleID = 0; SampleID < SubpixelCountPerPixel; ++SampleID)
-		SampleSum += RaytraceWindowBuffer[SubpixelStartID + SampleID].data.rgb;
+	// RGB: Welford M2. A: convergence flag.
+	float4 Statistics = RaytraceStatistics[TexturePixelID];
+	if (Statistics.a == 1.0f)
+		return;
 
-	// RGB: linear mean. A: sample count.
 	float4 Previous = RaytraceOutputTexture[TexturePixelID];
-	float SampleCount = Previous.a + SubpixelCountPerPixel;
-	float3 Mean = (Previous.rgb * Previous.a + SampleSum) / SampleCount;
+	float3 Mean = Previous.rgb;
+	float3 M2 = Statistics.rgb;
+	float SampleCount = Previous.a;
+	uint SubpixelStartID = id.x * SubpixelCountPerPixel;
+	for (uint SampleID = 0; SampleID < SubpixelCountPerPixel; ++SampleID)
+	{
+		float3 Sample = RaytraceWindowBuffer[SubpixelStartID + SampleID].data.rgb;
+		SampleCount += 1.0f;
+		float3 Delta = Sample - Mean;
+		Mean += Delta / SampleCount;
+		M2 += Delta * (Sample - Mean);
+	}
+
+	// Compare twice the standard error with the tolerance, squared.
+	float3 Tolerance = 0.002f + 0.02f * abs(Mean);
+	bool Converged = SampleCount >= MinimumSamples && all(4.0f * max(M2, 0.0f) <= Tolerance * Tolerance * SampleCount * (SampleCount - 1.0f));
 	RaytraceOutputTexture[TexturePixelID] = float4(Mean, SampleCount);
+	RaytraceStatistics[TexturePixelID] = float4(M2, Converged ? 1.0f : 0.0f);
 }

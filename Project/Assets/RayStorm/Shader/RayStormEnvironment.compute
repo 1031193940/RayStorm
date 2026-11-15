@@ -1,0 +1,20 @@
+#include "Include/LightInclude.cginc"
+
+#pragma kernel CSKernelMain
+
+RWStructuredBuffer<float> RSEnvironmentWeightBuffer;
+
+[numthreads(8, 8, 1)]
+void CSKernelMain(uint3 id : SV_DispatchThreadID)
+{
+	if (id.x >= EnvironmentWidth || id.y >= EnvironmentHeight)
+		return;
+	float Weight = 0.0f;
+	for (uint SampleID = 0; SampleID < 4; ++SampleID)
+	{
+		float2 Offset = (float2(SampleID & 1, SampleID >> 1) + 0.5f) * 0.5f;
+		float3 Direction = EnvironmentDirection((id.xy + Offset) / float2(EnvironmentWidth, EnvironmentHeight));
+		Weight += max(0.0f, dot(EvaluateEnvironment(Direction), float3(0.2126f, 0.7152f, 0.0722f)));
+	}
+	RSEnvironmentWeightBuffer[id.y * EnvironmentWidth + id.x] = Weight * 0.25f;
+}

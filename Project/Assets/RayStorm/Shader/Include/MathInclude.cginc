@@ -41,16 +41,6 @@ inline float4 SafeNormalize(float4 vec)
 	return vec / max(vecLength, 0.0001f);
 }
 
-inline float Max3(float a, float b, float c)
-{
-	return max(max(a, b), c);
-}
-
-inline float Min3(float a, float b, float c)
-{
-	return min(min(a, b), c);
-}
-
 inline float Pow2(float x)
 {
 	return x * x;
@@ -287,80 +277,6 @@ float4 SphericalHarmonicsCofficientsTransform(float4 sourceCofficients, float3x3
 ////////////////////////////////////////////////////////////////////////////////
 // Intersect Functions | Geometric intersection test functions
 ////////////////////////////////////////////////////////////////////////////////
-
-bool TriangleIntersectWithAABBBox(float3 AABBCenterPos, float3 AABBSize, float3 v0, float3 v1, float3 v2)
-{
-	v0 -= AABBCenterPos;
-	v1 -= AABBCenterPos;
-	v2 -= AABBCenterPos;
-
-	float3 e0 = normalize(v1 - v0);
-	float3 e1 = normalize(v2 - v0);
-	float3 e2 = normalize(v2 - v1);
-
-	float3 n0 = float3(1.0f, 0.0f, 0.0f);
-	float3 n1 = float3(0.0f, 1.0f, 0.0f);
-	float3 n2 = float3(0.0f, 0.0f, 1.0f);
-
-	const int kAxisCount = 13;
-	float3 AxisList[13] =
-	{
-		n0, n1, n2,
-		cross(e0, e1),
-		cross(n0, e0), cross(n0, e1), cross(n0, e2),
-		cross(n1, e0), cross(n1, e1), cross(n1, e2),
-		cross(n2, e0), cross(n2, e1), cross(n2, e2),
-	};
-
-	for (int AxisID = 0; AxisID < kAxisCount; ++AxisID)
-	{
-		float3 axis = normalize(AxisList[AxisID]);
-
-		float p0 = dot(v0, axis);
-		float p1 = dot(v1, axis);
-		float p2 = dot(v2, axis);
-
-		float r = AABBSize.x * abs(dot(axis, n0)) * 0.5f +
-			AABBSize.y * abs(dot(axis, n1)) * 0.5f +
-			AABBSize.z * abs(dot(axis, n2)) * 0.5f;
-
-		if (max(-Max3(p0, p1, p2), Min3(p0, p1, p2)) > r)
-			return false;
-	}
-
-	return true;
-}
-
-bool RayIntersectWithAABBBox(float3 RaySource, float3 RayDirection, float3 AABBBoxCenter, float3 AABBBoxSize, out float DistanceToIntersectPos, out float DistanceInsideBox)
-{
-	float3 BoundBoxMin = AABBBoxCenter - AABBBoxSize * 0.5f;
-	float3 BoundBoxMax = AABBBoxCenter + AABBBoxSize * 0.5f;
-
-	DistanceToIntersectPos = 0.0f;
-	DistanceInsideBox = 0.0f;
-	float ExitDistance = 3.402823466e+38f;
-	[unroll]
-	for (int Axis = 0; Axis < 3; ++Axis)
-	{
-		// Avoid 0/0 on slab boundaries.
-		if (abs(RayDirection[Axis]) < 1.0e-20f)
-		{
-			if (RaySource[Axis] < BoundBoxMin[Axis] || RaySource[Axis] > BoundBoxMax[Axis])
-				return false;
-		}
-		else
-		{
-			float FirstDistance = (BoundBoxMin[Axis] - RaySource[Axis]) / RayDirection[Axis];
-			float SecondDistance = (BoundBoxMax[Axis] - RaySource[Axis]) / RayDirection[Axis];
-			DistanceToIntersectPos = max(DistanceToIntersectPos, min(FirstDistance, SecondDistance));
-			ExitDistance = min(ExitDistance, max(FirstDistance, SecondDistance));
-			if (ExitDistance < DistanceToIntersectPos)
-				return false;
-		}
-	}
-	DistanceInsideBox = ExitDistance - DistanceToIntersectPos;
-	return true;
-}
 
 bool RayIntersectWithTriangle(float3 RaySource, float3 RayDirection, float3 p0, float3 p1, float3 p2, out float3 weights, out float HitDistance)
 {

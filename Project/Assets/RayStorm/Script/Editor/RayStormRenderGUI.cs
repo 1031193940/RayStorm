@@ -67,9 +67,11 @@ namespace RayStorm
 
         private void OnInspectorGUIInPlaying(RayStormRenderer RendererComponent)
         {
-            string OctreeDisplayState = (RendererComponent.IsDisplayOctree ? "ON" : "OFF");
-            if (GUILayout.Button("Display Octree : " + OctreeDisplayState, GUILayout.Height(EditorGUIUtility.singleLineHeight * 1.5f)))
-                serializedObject.FindProperty("IsDisplayOctree").boolValue = !RendererComponent.IsDisplayOctree;
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("IsDisplayRenderBlock"));
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("IsDisplayRenderProgress"));
+            string BVHDisplayState = (RendererComponent.IsDisplayBVH ? "ON" : "OFF");
+            if (GUILayout.Button("Display BVH : " + BVHDisplayState, GUILayout.Height(EditorGUIUtility.singleLineHeight * 1.5f)))
+                serializedObject.FindProperty("IsDisplayBVH").boolValue = !RendererComponent.IsDisplayBVH;
 
             if (GUILayout.Button("Save Texture", GUILayout.Height(EditorGUIUtility.singleLineHeight * 1.5f)))
                 RendererComponent.SaveRenderTexture();

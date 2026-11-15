@@ -120,8 +120,11 @@ float3 ImportanceSampleGGX(inout uint Seed, float Roughness)
 	sincos(Phi, SinPhi, CosPhi);
 
 	float Theta = Random01(Seed);
-	float CosTheta = sqrt((1.0f - Theta) / (1.0f + (a2 - 1.0f) * Theta));
-	float SinTheta = sqrt(1.0f - CosTheta * CosTheta);
+	// Compute both terms directly to avoid cancellation near the normal.
+	float OneMinusTheta = 1.0f - Theta;
+	float Denominator = OneMinusTheta + a2 * Theta;
+	float CosTheta = sqrt(OneMinusTheta / Denominator);
+	float SinTheta = sqrt(a2 * Theta / Denominator);
 
 	float3 H;
 	H.x = SinTheta * CosPhi;

@@ -7,6 +7,8 @@ namespace RayStorm
     {
         public Camera MainCamera = null;
         public RenderTexture RaytraceTexture = null;
+        public RenderTexture DenoisedTexture = null;
+        public RenderTexture OutputTexture => DenoisedTexture != null ? DenoisedTexture : RaytraceTexture;
         public int RenderWidth = 0;
         public int RenderHeight = 0;
 

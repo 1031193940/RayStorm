@@ -36,7 +36,7 @@ namespace RayStorm
 
             Vector3 Albedo = Vector3.one * 0.9f;
             if (SourceMaterial.HasProperty("_Color"))
-                Albedo = RSDataUtility.ColorToVector(SourceMaterial.GetColor("_Color"));
+                Albedo = RSDataUtility.ColorToVector(SourceMaterial.GetColor("_Color").linear);
 
             Vector3 Emission = Vector3.zero;
             if (SourceMaterial.HasProperty("_EmissionColor"))

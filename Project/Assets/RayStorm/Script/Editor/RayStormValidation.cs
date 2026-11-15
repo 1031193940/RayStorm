@@ -13,6 +13,7 @@ namespace RayStorm
             public string unityVersion;
             public string graphicsDevice;
             public string graphicsAPI;
+            public string colorSpace;
             public bool passed;
             public string error;
         }
@@ -24,13 +25,15 @@ namespace RayStorm
             {
                 unityVersion = Application.unityVersion,
                 graphicsDevice = SystemInfo.graphicsDeviceName,
-                graphicsAPI = SystemInfo.graphicsDeviceType.ToString()
+                graphicsAPI = SystemInfo.graphicsDeviceType.ToString(),
+                colorSpace = QualitySettings.activeColorSpace.ToString()
             };
             try
             {
                 SceneValidation.Run();
                 RayStormRuntimeValidation.Run();
                 RayStorm.Editor.RayStormGpuValidation.Run();
+                RayStorm.Editor.RayStormLightValidation.Run();
                 RayStormRendererValidation.Run();
                 Result.passed = true;
                 Debug.Log("RAYSTORM_VALIDATION_PASSED");

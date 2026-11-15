@@ -1,0 +1,38 @@
+#pragma kernel CSKernelTraceSources
+#pragma kernel CSKernelGenerateSources
+
+#include "../RayStormRaytracer.compute"
+
+StructuredBuffer<RSSourceData> RayStormSourceBuffer;
+RWStructuredBuffer<RSSourceData> RayStormSourceOutput;
+
+[numthreads(128, 1, 1)]
+void CSKernelTraceSources(uint3 id : SV_DispatchThreadID)
+{
+	if (id.x >= RayCount)
+		return;
+
+	RSSourceData Source = RayStormSourceBuffer[id.x];
+	RSRayData Ray = (RSRayData)0;
+	Ray.id = Source.id;
+	Ray.position = Source.position;
+	Ray.direction = Source.direction;
+	Ray.energy = Source.energy;
+	Ray.randomState = InitializeRandomState(id.x, RSRandomSeed);
+	RayStormOutputBuffer[id.x].data = float4(TraceRay(Ray), 1.0f);
+}
+
+[numthreads(128, 1, 1)]
+void CSKernelGenerateSources(uint3 id : SV_DispatchThreadID)
+{
+	if (id.x >= RayCount)
+		return;
+
+	RSRayData Ray = CreatePrimaryRay(GetRaytracePixel(id.x), id.x % SubpixelCountPerPixel);
+	RSSourceData Source;
+	Source.id = Ray.id;
+	Source.position = Ray.position;
+	Source.direction = Ray.direction;
+	Source.energy = Ray.energy;
+	RayStormSourceOutput[id.x] = Source;
+}

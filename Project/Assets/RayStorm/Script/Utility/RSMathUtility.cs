@@ -21,48 +21,6 @@ namespace RayStorm
 			return a * Weights.x + b * Weights.y + c * Weights.z;
 		}
 
-		public static bool IsTriangleIntersectWithAABBBox(Vector3 v0, Vector3 v1, Vector3 v2, Vector3 AABBCenter, Vector3 AABBSize)
-		{
-			v0 -= AABBCenter;
-			v1 -= AABBCenter;
-			v2 -= AABBCenter;
-
-			Vector3 e0 = (v1 - v0).normalized;
-			Vector3 e1 = (v2 - v0).normalized;
-			Vector3 e2 = (v2 - v1).normalized;
-
-			Vector3 n0 = new Vector3(1.0f, 0.0f, 0.0f);
-			Vector3 n1 = new Vector3(0.0f, 1.0f, 0.0f);
-			Vector3 n2 = new Vector3(0.0f, 0.0f, 1.0f);
-
-			Vector3[] AxisList =
-			{
-			n0, n1, n2,
-			Vector3.Cross(e0, e1).normalized,
-			Vector3.Cross(n0, e0).normalized, Vector3.Cross(n0, e1).normalized, Vector3.Cross(n0, e2).normalized,
-			Vector3.Cross(n1, e0).normalized, Vector3.Cross(n1, e1).normalized, Vector3.Cross(n1, e2).normalized,
-			Vector3.Cross(n2, e0).normalized, Vector3.Cross(n2, e1).normalized, Vector3.Cross(n2, e2).normalized,
-		};
-
-			foreach (var Axis in AxisList)
-			{
-				float p0 = Vector3.Dot(v0, Axis);
-				float p1 = Vector3.Dot(v1, Axis);
-				float p2 = Vector3.Dot(v2, Axis);
-
-				float r = AABBSize.x * Mathf.Abs(Vector3.Dot(Axis, n0)) * 0.5f +
-						  AABBSize.y * Mathf.Abs(Vector3.Dot(Axis, n1)) * 0.5f +
-						  AABBSize.z * Mathf.Abs(Vector3.Dot(Axis, n2)) * 0.5f;
-
-				float ProjectionMagnitude = Mathf.Max(1.0f, Mathf.Max(r, Mathf.Max(Mathf.Abs(p0), Mathf.Max(Mathf.Abs(p1), Mathf.Abs(p2)))));
-				float ProjectionTolerance = ProjectionMagnitude * (8.0f * 1.192092896e-7f);
-				if (Mathf.Max(-Mathf.Max(Mathf.Max(p0, p1), p2), Mathf.Min(Mathf.Min(p0, p1), p2)) > r + ProjectionTolerance)
-					return false;
-			}
-
-			return true;
-		}
-
 		public static bool RayIntersectWithAABBBox(Vector3 RaySource, Vector3 RayDirection, Vector3 AABBBoxCenter, Vector3 AABBBoxSize, out float DistanceToIntersectPos, out float DistanceInsideBox)
 		{
 			Vector3 BoundBoxMin = AABBBoxCenter - AABBBoxSize * 0.5f;

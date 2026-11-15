@@ -3,14 +3,109 @@
 #include "Include/RandomInclude.cginc"
 #include "Include/ConfigInclude.cginc"
 #include "Include/SceneInclude.cginc"
-#include "Include/ShadeInclude.cginc"
+#include "Include/LightInclude.cginc"
 
 #pragma kernel CSKernelMain
 
 uint RayCount;
 uint RSRandomSeed;
-StructuredBuffer<RSSourceData> RayStormSourceBuffer;
+uint RenderWidth;
+uint RenderHeight;
+uint RaytraceWindowPosX;
+uint RaytraceWindowPosY;
+uint RaytraceWindowSizeX;
+uint SubpixelCountPerPixel;
+float3 CameraPosition;
+float3 CameraForward;
+float3 NearPlaneBottomLeft;
+float3 NearPlaneHorizontal;
+float3 NearPlaneVertical;
+int CameraOrthographic;
+Texture2D<float4> RaytraceAccumulation;
+Texture2D<float4> RaytraceStatistics;
 RWStructuredBuffer<RSOutputData> RayStormOutputBuffer;
+
+uint2 GetRaytracePixel(uint RayIndex)
+{
+	uint LocalPixelIndex = RayIndex / SubpixelCountPerPixel;
+	return uint2(RaytraceWindowPosX + LocalPixelIndex % RaytraceWindowSizeX, RaytraceWindowPosY + LocalPixelIndex / RaytraceWindowSizeX);
+}
+
+RSRayData CreatePrimaryRay(uint2 Pixel, uint SubpixelIndex)
+{
+	uint PixelIndex = Pixel.y * RenderWidth + Pixel.x;
+	uint SampleIndex = (uint)RaytraceAccumulation[Pixel].a + SubpixelIndex;
+	uint State = InitializeRandomState(SampleIndex, InitializeRandomState(PixelIndex, RSRandomSeed));
+	float ScreenX = Pixel.x + Random01(State);
+	float ScreenY = Pixel.y + Random01(State);
+	float3 Origin = NearPlaneBottomLeft + NearPlaneHorizontal * (ScreenX / RenderWidth) + NearPlaneVertical * (ScreenY / RenderHeight);
+	RSRayData Ray = (RSRayData)0;
+	Ray.id = float2(ScreenX, ScreenY);
+	Ray.position = Origin;
+	Ray.direction = CameraOrthographic != 0 ? CameraForward : normalize(Origin - CameraPosition);
+	Ray.energy = 1.0f;
+	Ray.randomState = State;
+	return Ray;
+}
+
+float PowerHeuristic(float FirstPdf, float SecondPdf)
+{
+	float Scale = max(FirstPdf, SecondPdf);
+	if (Scale == 0.0f)
+		return 1.0f;
+	FirstPdf /= Scale;
+	SecondPdf /= Scale;
+	return FirstPdf * FirstPdf / (FirstPdf * FirstPdf + SecondPdf * SecondPdf);
+}
+
+float3 TraceRay(RSRayData Ray)
+{
+	float3 Radiance = 0.0f;
+	float3 PreviousPosition = Ray.position;
+	float PreviousPdf = 0.0f;
+	bool PreviousDelta = true;
+	for (int BounceID = 0; BounceID < RAYTRACE_MAX_BOUNCES; ++BounceID)
+	{
+		RSRayIntersectData Hit;
+		if (!FindClosestRayHit(Ray, Hit))
+		{
+			float Weight = !PreviousDelta ? PowerHeuristic(PreviousPdf, EvaluateEnvironmentPdf(Ray.direction)) : 1.0f;
+			Radiance += Ray.energy * EvaluateEnvironment(Ray.direction) * Weight;
+			break;
+		}
+		RSMaterialData Material = GetSurfaceMaterial(Hit);
+		Ray.energy *= GetSurfaceAbsorption(Ray, Hit, Material);
+		float EmissionWeight = !PreviousDelta ? PowerHeuristic(PreviousPdf, EvaluateLightPdf(PreviousPosition, Hit)) : 1.0f;
+		Radiance += Ray.energy * Material.emission * EmissionWeight;
+		if (BounceID + 1 == RAYTRACE_MAX_BOUNCES)
+			break;
+		if (HasNonDeltaBSDF(Material))
+		{
+			RSLightSample Light;
+			if (SampleLight(Hit.position, Ray.randomState, Light))
+			{
+				float BSDFPdf;
+				float3 Scattering = EvaluateBSDF(-Ray.direction, Light.direction, Hit, Material, BSDFPdf);
+				if (dot(Scattering, 1.0f) > 0.0f)
+				{
+					RSRayData ShadowRay = (RSRayData)0;
+					ShadowRay.position = OffsetRayOrigin(Hit.position, Hit.geometricNormal, Light.direction);
+					ShadowRay.direction = Light.direction;
+					float MaximumDistance = Light.distance - 2.0f * distance(ShadowRay.position, Hit.position);
+					if (!FindShadowRayHit(ShadowRay, MaximumDistance))
+					{
+						float Weight = Light.isDelta ? 1.0f : PowerHeuristic(Light.pdf, BSDFPdf);
+						Radiance += Ray.energy * Scattering * Light.radiance * (Weight / Light.pdf);
+					}
+				}
+			}
+		}
+		PreviousPosition = Hit.position;
+		if (!SampleBSDF(Ray, Hit, Material, PreviousPdf, PreviousDelta) || dot(Ray.energy, 1.0f) < RAYTRACE_EPSILON)
+			break;
+	}
+	return Radiance;
+}
 
 [numthreads(128, 1, 1)]
 void CSKernelMain(uint3 id : SV_DispatchThreadID)
@@ -18,29 +113,8 @@ void CSKernelMain(uint3 id : SV_DispatchThreadID)
 	if (id.x >= RayCount)
 		return;
 
-	RSSourceData Source = RayStormSourceBuffer[id.x];
-	RSRayData Ray = (RSRayData)0;
-	Ray.id = Source.id;
-	Ray.position = Source.position;
-	Ray.direction = Source.direction;
-	Ray.energy = Source.energy;
-	Ray.randomState = InitializeRandomState(id.x, RSRandomSeed);
-
-	float3 RaytraceColor = 0.0f;
-	for (int BounceID = 0; BounceID < RAYTRACE_MAX_BOUNCES; ++BounceID)
-	{
-		RSRayIntersectData RayIntersectData;
-		float3 IncomingEnergy = Ray.energy;
-		float3 EmittedRadiance;
-		if (FindClosestRayHit(Ray, RayIntersectData))
-			EmittedRadiance = RayHitSurface(Ray, RayIntersectData);
-		else
-			EmittedRadiance = RayHitSkybox(Ray, RayIntersectData);
-
-		RaytraceColor += IncomingEnergy * EmittedRadiance;
-		if (dot(Ray.energy, 1.0f) < RAYTRACE_EPSILON)
-			break;
-	}
-
-	RayStormOutputBuffer[id.x].data = float4(RaytraceColor, 1.0f);
+	uint2 Pixel = GetRaytracePixel(id.x);
+	if (RaytraceStatistics[Pixel].a == 1.0f)
+		return;
+	RayStormOutputBuffer[id.x].data = float4(TraceRay(CreatePrimaryRay(Pixel, id.x % SubpixelCountPerPixel)), 1.0f);
 }

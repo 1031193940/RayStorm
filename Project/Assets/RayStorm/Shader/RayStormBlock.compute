@@ -4,8 +4,9 @@ uint BlockPosX;
 uint BlockPosY;
 uint BlockSizeX;
 uint BlockSizeY;
-float4 BlockColor;
 int ShowRenderBlock;
+int ShowRenderProgress;
+float RenderProgress;
 int OutputIsGamma;
 Texture2D<float4> Source;
 RWTexture2D<float4> Target;
@@ -34,7 +35,19 @@ void CSKernelMain(uint3 id : SV_DispatchThreadID)
 
 	if (ShowRenderBlock != 0 && id.x >= BlockPosX && id.x - BlockPosX < BlockSizeX
 		&& id.y >= BlockPosY && id.y - BlockPosY < BlockSizeY)
-		DisplayColor = lerp(DisplayColor, BlockColor.rgb, BlockColor.a);
+	{
+		uint2 BlockSize = uint2(BlockSizeX, BlockSizeY);
+		uint2 Position = id.xy - uint2(BlockPosX, BlockPosY);
+		uint2 EdgeDistance = min(Position, BlockSize - 1u - Position);
+		uint2 CornerSize = min(uint2(8, 8), max(uint2(1, 1), (max(BlockSize, uint2(3, 3)) - 3u) / 3u));
+		uint Inset = min(1u, (min(BlockSizeX, BlockSizeY) - 1u) / 2u);
+		bool Corner = (EdgeDistance.x == Inset && EdgeDistance.y >= Inset && EdgeDistance.y < Inset + CornerSize.y) || (EdgeDistance.y == Inset && EdgeDistance.x >= Inset && EdgeDistance.x < Inset + CornerSize.x);
+		bool Outline = (EdgeDistance.x <= Inset + 1u && EdgeDistance.y < Inset + CornerSize.y + 1u) || (EdgeDistance.y <= Inset + 1u && EdgeDistance.x < Inset + CornerSize.x + 1u);
+		if (Outline)
+			DisplayColor = Corner ? 1.0f : 0.0f;
+	}
+	if (ShowRenderProgress != 0 && id.y < min(3u, TargetHeight))
+		DisplayColor = id.y < min(2u, TargetHeight) && id.x < (uint)(saturate(RenderProgress) * TargetWidth) ? 1.0f : 0.0f;
 
 	Target[id.xy] = float4(DisplayColor, 1.0f);
 }

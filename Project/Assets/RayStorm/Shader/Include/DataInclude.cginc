@@ -36,15 +36,12 @@ struct RSMaterialData
 	float  IOR;
 };
 
-struct RSOctreeData
+struct RSBVHData
 {
-	int parentTreeID;
-	int subtreeStartID;
-	int subtreeCount;
-	int geometryStartID;
+	float3 minimum;
+	int startID;
+	float3 maximum;
 	int geometryCount;
-	float3 center;
-	float3 size;
 };
 
 struct RSOutputData
@@ -64,6 +61,7 @@ struct RSRayData
 struct RSRayIntersectData
 {
 	int materialID;
+	int geometryID;
 	float3 position;
 	float2 uv0;
 	float2 uv1;

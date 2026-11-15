@@ -7,45 +7,31 @@ namespace RayStorm
 {
     public static class SceneValidation
     {
-        [MenuItem("RayStorm/Validate Scene Import and Octree")]
+        [MenuItem("RayStorm/Validate Scene Import and BVH")]
         public static void Run()
         {
             Require(!Application.isPlaying, "Run scene validation in Edit mode.");
-            ValidateSplitPlaneCoverage();
+            ValidateDegenerateBounds();
             ValidateNearestHits();
             ValidateParallelSlabs();
             ValidateSceneCollection();
-            Debug.Log("RayStorm scene validation passed: split-plane coverage, nearest hits, parallel slabs and scene collection.");
+            Debug.Log("RayStorm scene validation passed: BVH coverage, nearest hits, parallel slabs and scene collection.");
         }
 
-        private static void ValidateSplitPlaneCoverage()
+        private static void ValidateDegenerateBounds()
         {
-            // Regression: the middle triangle was lost at the first split.
             foreach (float CenterHeight in new[] { 100.0f, 2048.0f, 262144.0f })
             {
                 var SceneVertexList = new List<RSVertexData>();
                 var SceneGeometryList = new List<RSGeometryData>();
-                for (int TriangleID = 0; TriangleID < 3; ++TriangleID)
-                {
-                    float Height = CenterHeight + TriangleID - 1;
-                    AddTriangle(SceneVertexList, SceneGeometryList, new Vector3(-1, Height, -1),
-                        new Vector3(1, Height, -1), new Vector3(0, Height, 1));
-                }
+                for (int TriangleID = 0; TriangleID < 17; ++TriangleID)
+                    AddTriangle(SceneVertexList, SceneGeometryList, new Vector3(-1, CenterHeight, -1), new Vector3(1, CenterHeight, -1), new Vector3(0, CenterHeight, 1));
                 RSVertexData[] SceneVertices = SceneVertexList.ToArray();
                 RSGeometryData[] SceneGeometries = SceneGeometryList.ToArray();
-                RSSceneUtility.BuildSceneOctree(SceneVertices, SceneGeometries, 7,
-                    out var OctreeNodes, out var OctreeGeometryIDs);
-                var RepresentedGeometries = new HashSet<int>(OctreeGeometryIDs);
-                Require(RepresentedGeometries.Count == 3, "Octree dropped a triangle on a split plane.");
-                foreach (var OctreeNode in OctreeNodes)
-                {
-                    Vector3 Minimum = OctreeNode.Center - OctreeNode.Size * 0.5f;
-                    Vector3 Maximum = OctreeNode.Center + OctreeNode.Size * 0.5f;
-                    Require(Minimum.x < Maximum.x && Minimum.y < Maximum.y && Minimum.z < Maximum.z,
-                        "Octree bounds collapsed at large world coordinates.");
-                }
-                CompareHit(SceneVertices, SceneGeometries, OctreeNodes, OctreeGeometryIDs,
-                    new Vector3(0, CenterHeight + 0.5f, 0), Vector3.down);
+                RSBVHUtility.BuildSceneBVH(SceneVertices, SceneGeometries, out var Nodes, out var GeometryIDs);
+                Require(Nodes.Length > 1, "BVH failed to split triangles with coincident centers.");
+                ValidateCoverage(SceneVertices, SceneGeometries, Nodes, GeometryIDs);
+                CompareHit(SceneVertices, SceneGeometries, Nodes, GeometryIDs, new Vector3(0, CenterHeight + 0.5f, 0), Vector3.down);
             }
         }
 
@@ -57,33 +43,69 @@ namespace RayStorm
             for (int TriangleID = 0; TriangleID < 48; ++TriangleID)
             {
                 Vector3 Center = RandomVector(RandomGenerator, 5.0f);
-                AddTriangle(SceneVertexList, SceneGeometryList, Center + RandomVector(RandomGenerator, 1.0f),
-                    Center + RandomVector(RandomGenerator, 1.0f), Center + RandomVector(RandomGenerator, 1.0f));
+                AddTriangle(SceneVertexList, SceneGeometryList, Center + RandomVector(RandomGenerator, 1.0f), Center + RandomVector(RandomGenerator, 1.0f), Center + RandomVector(RandomGenerator, 1.0f));
             }
             RSVertexData[] SceneVertices = SceneVertexList.ToArray();
             RSGeometryData[] SceneGeometries = SceneGeometryList.ToArray();
-            RSSceneUtility.BuildSceneOctree(SceneVertices, SceneGeometries, 7, out var OctreeNodes, out var OctreeGeometryIDs);
+            RSBVHUtility.BuildSceneBVH(SceneVertices, SceneGeometries, out var Nodes, out var GeometryIDs);
+            ValidateCoverage(SceneVertices, SceneGeometries, Nodes, GeometryIDs);
+            RandomGenerator = new System.Random(89173);
             for (int RayID = 0; RayID < 512; ++RayID)
             {
                 Vector3 RaySource = RandomVector(RandomGenerator, 10.0f);
                 RSGeometryData TargetTriangle = SceneGeometries[RayID % SceneGeometries.Length];
-                Vector3 RayTarget = (SceneVertices[TargetTriangle.Indice0].Position +
-                    SceneVertices[TargetTriangle.Indice1].Position + SceneVertices[TargetTriangle.Indice2].Position) / 3.0f;
-                CompareHit(SceneVertices, SceneGeometries, OctreeNodes, OctreeGeometryIDs, RaySource, (RayTarget - RaySource).normalized);
+                Vector3 RayTarget = (SceneVertices[TargetTriangle.Indice0].Position + SceneVertices[TargetTriangle.Indice1].Position + SceneVertices[TargetTriangle.Indice2].Position) / 3.0f;
+                CompareHit(SceneVertices, SceneGeometries, Nodes, GeometryIDs, RaySource, (RayTarget - RaySource).normalized);
             }
-            RSSceneUtility.BuildSceneOctree(Array.Empty<RSVertexData>(), Array.Empty<RSGeometryData>(),
-                7, out var EmptyNodes, out var EmptyGeometryIDs);
-            Require(EmptyNodes.Length == 1 && EmptyNodes[0].GeometryCount == 0 && EmptyGeometryIDs.Length == 0,
-                "Empty scene should produce one empty root.");
+            RSBVHUtility.BuildSceneBVH(Array.Empty<RSVertexData>(), Array.Empty<RSGeometryData>(), out var EmptyNodes, out var EmptyGeometryIDs);
+            Require(EmptyNodes.Length == 0 && EmptyGeometryIDs.Length == 0, "Empty scene should produce an empty BVH.");
+        }
+
+        private static void ValidateCoverage(RSVertexData[] SceneVertices, RSGeometryData[] SceneGeometries, RSBVHData[] Nodes, int[] GeometryIDs)
+        {
+            Require(GeometryIDs.Length == SceneGeometries.Length, "BVH reference count differs from scene geometry.");
+            var SeenGeometries = new HashSet<int>();
+            var PendingNodes = new Stack<(int NodeID, int Depth)>();
+            PendingNodes.Push((0, 0));
+            int VisitedCount = 0;
+            while (PendingNodes.Count > 0)
+            {
+                var (NodeID, Depth) = PendingNodes.Pop();
+                RSBVHData Node = Nodes[NodeID];
+                Require(++VisitedCount <= Nodes.Length && Depth <= 31, "BVH exceeds traversal bounds.");
+                Require(Node.Minimum.x < Node.Maximum.x && Node.Minimum.y < Node.Maximum.y && Node.Minimum.z < Node.Maximum.z, "BVH bounds collapsed.");
+                if (Node.GeometryCount == 0)
+                {
+                    Require(Node.StartID > NodeID && Node.StartID + 1 < Nodes.Length, "BVH child range is invalid.");
+                    for (int ChildID = Node.StartID; ChildID <= Node.StartID + 1; ++ChildID)
+                    {
+                        RSBVHData Child = Nodes[ChildID];
+                        Require(Contains(Node, Child.Minimum) && Contains(Node, Child.Maximum), "BVH parent does not enclose its child.");
+                        PendingNodes.Push((ChildID, Depth + 1));
+                    }
+                    continue;
+                }
+                for (int GeometryOffset = 0; GeometryOffset < Node.GeometryCount; ++GeometryOffset)
+                {
+                    int GeometryID = GeometryIDs[Node.StartID + GeometryOffset];
+                    Require(SeenGeometries.Add(GeometryID), "BVH contains a duplicate geometry reference.");
+                    RSGeometryData Geometry = SceneGeometries[GeometryID];
+                    Require(Contains(Node, SceneVertices[Geometry.Indice0].Position) && Contains(Node, SceneVertices[Geometry.Indice1].Position) && Contains(Node, SceneVertices[Geometry.Indice2].Position), "BVH leaf does not enclose its geometry.");
+                }
+            }
+            Require(VisitedCount == Nodes.Length && SeenGeometries.Count == SceneGeometries.Length, "BVH contains unreachable nodes or missing geometry.");
+        }
+
+        private static bool Contains(RSBVHData Node, Vector3 Position)
+        {
+            return Position.x >= Node.Minimum.x && Position.x <= Node.Maximum.x && Position.y >= Node.Minimum.y && Position.y <= Node.Maximum.y && Position.z >= Node.Minimum.z && Position.z <= Node.Maximum.z;
         }
 
         private static void ValidateParallelSlabs()
         {
-            Require(RSMathUtility.RayIntersectWithAABBBox(new Vector3(1, 0, -2), Vector3.forward,
-                Vector3.zero, Vector3.one * 2, out float EntryDistance, out _), "Boundary-parallel ray missed.");
+            Require(RSMathUtility.RayIntersectWithAABBBox(new Vector3(1, 0, -2), Vector3.forward, Vector3.zero, Vector3.one * 2, out float EntryDistance, out _), "Boundary-parallel ray missed.");
             Require(Mathf.Abs(EntryDistance - 1) < 0.00001f, "Unexpected slab entry distance.");
-            Require(!RSMathUtility.RayIntersectWithAABBBox(new Vector3(1.1f, 0, -2), Vector3.forward,
-                Vector3.zero, Vector3.one * 2, out _, out _), "Outside parallel ray should miss.");
+            Require(!RSMathUtility.RayIntersectWithAABBBox(new Vector3(1.1f, 0, -2), Vector3.forward, Vector3.zero, Vector3.one * 2, out _, out _), "Outside parallel ray should miss.");
         }
 
         private static void ValidateSceneCollection()
@@ -143,8 +165,7 @@ namespace RayStorm
             return TestObject;
         }
 
-        private static void CompareHit(RSVertexData[] SceneVertices, RSGeometryData[] SceneGeometries,
-            RSOctreeData[] OctreeNodes, int[] OctreeGeometryIDs, Vector3 RaySource, Vector3 RayDirection)
+        private static void CompareHit(RSVertexData[] SceneVertices, RSGeometryData[] SceneGeometries, RSBVHData[] Nodes, int[] GeometryIDs, Vector3 RaySource, Vector3 RayDirection)
         {
             float BruteDistance = float.PositiveInfinity;
             foreach (var Geometry in SceneGeometries)
@@ -153,25 +174,24 @@ namespace RayStorm
             float TreeDistance = float.PositiveInfinity;
             var PendingNodes = new Stack<int>();
             PendingNodes.Push(0);
-            int VisitedCount = 0;
             while (PendingNodes.Count > 0)
             {
-                Require(++VisitedCount <= OctreeNodes.Length, "Octree contains a cycle or shared child.");
-                RSOctreeData OctreeNode = OctreeNodes[PendingNodes.Pop()];
-                if (!RSMathUtility.RayIntersectWithAABBBox(RaySource, RayDirection, OctreeNode.Center, OctreeNode.Size,
-                    out float EntryDistance, out _) || EntryDistance > TreeDistance)
+                RSBVHData Node = Nodes[PendingNodes.Pop()];
+                Vector3 Size = Node.Maximum - Node.Minimum;
+                if (!RSMathUtility.RayIntersectWithAABBBox(RaySource, RayDirection, Node.Minimum + Size * 0.5f, Size, out float EntryDistance, out _) || EntryDistance > TreeDistance)
                     continue;
-                for (int GeometryOffset = 0; GeometryOffset < OctreeNode.GeometryCount; ++GeometryOffset)
-                    TestTriangle(SceneVertices, SceneGeometries[OctreeGeometryIDs[OctreeNode.GeometryStartID + GeometryOffset]],
-                        RaySource, RayDirection, ref TreeDistance);
-                for (int ChildOffset = 0; ChildOffset < OctreeNode.SubtreeCount; ++ChildOffset)
-                    PendingNodes.Push(OctreeNode.SubtreeStartID + ChildOffset);
+                if (Node.GeometryCount == 0)
+                {
+                    PendingNodes.Push(Node.StartID + 1);
+                    PendingNodes.Push(Node.StartID);
+                }
+                else
+                    for (int GeometryOffset = 0; GeometryOffset < Node.GeometryCount; ++GeometryOffset)
+                        TestTriangle(SceneVertices, SceneGeometries[GeometryIDs[Node.StartID + GeometryOffset]], RaySource, RayDirection, ref TreeDistance);
             }
             bool BruteMissed = float.IsPositiveInfinity(BruteDistance);
             bool TreeMissed = float.IsPositiveInfinity(TreeDistance);
-            Require(BruteMissed == TreeMissed && (BruteMissed ||
-                Mathf.Abs(BruteDistance - TreeDistance) <= 0.0001f * Mathf.Max(1, BruteDistance)),
-                "Octree and brute force disagree on nearest hit.");
+            Require(BruteMissed == TreeMissed && (BruteMissed || Mathf.Abs(BruteDistance - TreeDistance) <= 0.0001f * Mathf.Max(1, BruteDistance)), "BVH and brute force disagree on nearest hit.");
         }
 
         private static void TestTriangle(RSVertexData[] SceneVertices, RSGeometryData Geometry,
@@ -199,8 +219,7 @@ namespace RayStorm
 
         private static Vector3 RandomVector(System.Random RandomGenerator, float Extent)
         {
-            return new Vector3((float)(RandomGenerator.NextDouble() * 2 - 1),
-                (float)(RandomGenerator.NextDouble() * 2 - 1), (float)(RandomGenerator.NextDouble() * 2 - 1)) * Extent;
+            return new Vector3((float)(RandomGenerator.NextDouble() * 2 - 1), (float)(RandomGenerator.NextDouble() * 2 - 1), (float)(RandomGenerator.NextDouble() * 2 - 1)) * Extent;
         }
 
         private static void Require(bool Condition, string Message)

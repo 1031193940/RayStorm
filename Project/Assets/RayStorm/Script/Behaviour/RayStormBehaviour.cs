@@ -84,6 +84,7 @@ namespace RayStorm
         protected static void AddRenderTasks(RSRenderContext Context, List<RSRenderTask> RenderTaskList,
             int RenderWindowSize, int SubpixelCountPerPixel)
         {
+            int PassStart = RenderTaskList.Count;
             for (int WindowY = 0; WindowY < Context.RenderHeight; WindowY += RenderWindowSize)
             {
                 for (int WindowX = 0; WindowX < Context.RenderWidth; WindowX += RenderWindowSize)
@@ -99,6 +100,25 @@ namespace RayStorm
                     });
                 }
             }
+
+            // Sort only the new pass so the whole image is sampled before the next pass starts.
+            var CenterFirst = Comparer<RSRenderTask>.Create((First, Second) =>
+            {
+                int Order = GetCenterDistanceSquared(First, Context).CompareTo(GetCenterDistanceSquared(Second, Context));
+                if (Order != 0)
+                    return Order;
+                Order = First.WindowPos.y.CompareTo(Second.WindowPos.y);
+                return Order != 0 ? Order : First.WindowPos.x.CompareTo(Second.WindowPos.x);
+            });
+            RenderTaskList.Sort(PassStart, RenderTaskList.Count - PassStart, CenterFirst);
+        }
+
+        private static long GetCenterDistanceSquared(RSRenderTask Task, RSRenderContext Context)
+        {
+            // Double the coordinates to keep half-pixel centers exact, including clipped tiles.
+            long X = 2L * Task.WindowPos.x + Task.WindowSize.x - Context.RenderWidth;
+            long Y = 2L * Task.WindowPos.y + Task.WindowSize.y - Context.RenderHeight;
+            return X * X + Y * Y;
         }
     }
 }
